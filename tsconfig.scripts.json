@@ -1,0 +1,32 @@
+{
+    "ts-node": {
+        "require": [
+            "tsconfig-paths/register"
+        ]
+    },
+    "compilerOptions": {
+        "target": "ES2017",
+        "lib": [
+            "esnext",
+            "dom"
+        ],
+        "allowJs": true,
+        "skipLibCheck": true,
+        "strict": true,
+        "esModuleInterop": true,
+        "module": "commonjs",
+        "moduleResolution": "node",
+        "resolveJsonModule": true,
+        "outDir": ".scripts-dist",
+        "paths": {
+            "@/*": [
+                "./*"
+            ]
+        }
+    },
+    "include": [
+        "scripts/**/*.ts",
+        "lib/**/*.ts",
+        "prisma/**/*.ts"
+    ]
+}

@@ -1,0 +1,39 @@
+# Dependências
+node_modules/
+.pnpm-store/
+
+# Next.js
+.next/
+out/
+build/
+
+# Prisma
+.prisma/
+
+# Variáveis de ambiente — NUNCA commitar!
+.env
+.env.local
+.env.production
+.env.staging
+
+# Scripts compilados
+.scripts-dist/
+
+# Playwright
+playwright-report/
+test-results/
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Logs
+*.log
+npm-debug.log*
+
+# Vercel
+.vercel
+
+# TypeScript
+*.tsbuildinfo
+next-env.d.ts

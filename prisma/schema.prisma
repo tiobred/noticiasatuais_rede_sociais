@@ -1,0 +1,103 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider  = "postgresql"
+  url       = env("DATABASE_URL")
+  directUrl = env("DIRECT_URL")
+}
+
+model Post {
+  id           String    @id @default(cuid())
+  sourceId     String    @unique // SHA-256 do conteúdo para deduplicação
+  title        String
+  body         String    @db.Text
+  imageUrl     String?
+  hashtags     String[]
+  originalUrl  String?
+  sourceName   String    // "Bloomberg", "Reuters", etc.
+  tags         String[]  // categorias do glint.trade
+  rawContent   String?   @db.Text // conteúdo original em inglês
+  status       PostStatus @default(PENDING)
+  publications SocialPublication[]
+  createdAt    DateTime  @default(now())
+  processedAt  DateTime?
+}
+
+model SocialPublication {
+  id          String    @id @default(cuid())
+  postId      String
+  post        Post      @relation(fields: [postId], references: [id], onDelete: Cascade)
+  channel     Channel
+  accountId   String?   // ID da conta usada, configurado no .env (ex: "principal", "promo")
+  externalId  String?   // ID retornado pela API do canal
+  status      PubStatus @default(PENDING)
+  error       String?   @db.Text
+  publishedAt DateTime?
+  createdAt   DateTime  @default(now())
+
+  @@index([postId])
+  @@index([channel])
+  @@index([status])
+}
+
+model AgentRun {
+  id             String    @id @default(cuid())
+  agentName      String
+  status         RunStatus @default(RUNNING)
+  postsFound     Int       @default(0)
+  postsNew       Int       @default(0)
+  postsPublished Int       @default(0)
+  error          String?   @db.Text
+  metadata       Json?     // dados extras do run
+  startedAt      DateTime  @default(now())
+  finishedAt     DateTime?
+
+  @@index([agentName])
+  @@index([status])
+  @@index([startedAt])
+}
+
+model SystemConfig {
+  key       String   @id
+  value     Json
+  updatedAt DateTime @updatedAt
+}
+
+model AuditLog {
+  id        String   @id @default(cuid())
+  action    String
+  details   Json?
+  createdAt DateTime @default(now())
+
+  @@index([action])
+  @@index([createdAt])
+}
+
+enum PostStatus {
+  PENDING
+  PROCESSING
+  PROCESSED
+  PUBLISHED
+  FAILED
+}
+
+enum Channel {
+  INSTAGRAM_FEED
+  INSTAGRAM_STORY
+  LINKEDIN
+  WHATSAPP
+}
+
+enum PubStatus {
+  PENDING
+  SUCCESS
+  FAILED
+}
+
+enum RunStatus {
+  RUNNING
+  SUCCESS
+  FAILED
+}
