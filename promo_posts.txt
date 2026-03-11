@@ -1,0 +1,11 @@
+﻿--- Posts for account: promo ---
+ID: cmmi652xi000ck7go415kh7df | Title: Escalada de guerra, desemprego e resultados da Oracle: o que observar | Status: PROCESSED
+ID: cmmi652w3000bk7go46dwy6yj | Title: Bolha ferrovi├íria: consequ├¬ncias inesperadas | Status: PROCESSED
+ID: cmmi652uh000ak7go9h3ji8xr | Title: Futuros do Dow Jones reagindo ao petr├│leo e tens├╡es geopol├¡ticas | Status: PROCESSED
+ID: cmmi652t20009k7gobs0x36rl | Title: Queda e recupera├º├úo das a├º├╡es da Wix.com | Status: PROCESSED
+ID: cmmi652rk0008k7go5hunl4of | Title: Responsabilidade financeira com pai idoso: implica├º├╡es | Status: PROCESSED
+ID: cmmi652q50007k7goipnasweg | Title: Custo da mudan├ºa de hor├írio: perdas econ├┤micas nos EUA | Status: PROCESSED
+ID: cmmi652on0006k7gopk09rs86 | Title: Alta dos pre├ºos do petr├│leo: aten├º├úo dos investidores | Status: PROCESSED
+ID: cmmi652ls0005k7goq9zvkfdl | Title: Heran├ºa e moradia: direitos do segundo marido e filhos | Status: PROCESSED
+ID: cmmi652kc0004k7go5rg4lmyu | Title: Post do @jornadatop | Status: PROCESSED
+ID: cmmi652it0003k7goocztzl2v | Title: Post do @jornadatop | Status: PROCESSED

@@ -3,8 +3,9 @@ import 'dotenv/config';
 import { runPipeline } from '../lib/agents/orchestrator';
 
 async function main() {
-    console.log('🚀 Iniciando pipeline completo manualmente...');
-    const result = await runPipeline();
+    const accountId = process.argv[2] || 'Tiobred';
+    console.log(`🚀 Iniciando pipeline para ${accountId} manualmente...`);
+    const result = await runPipeline(accountId);
     console.log(`\n✅ Pipeline concluído!`);
     console.log(`   Scrapeados: ${result.postsFound}`);
     console.log(`   Novos Posts (Processados e Salvos): ${result.postsNew}`);

@@ -59,3 +59,54 @@ export function truncate(text: string, maxLength: number): string {
     if (text.length <= maxLength) return text;
     return text.slice(0, maxLength - 3) + '...';
 }
+
+/**
+ * Extrai JSON com segurança de blocos markdown do LLM
+ */
+export function parseLlmJson<T>(content: string): T {
+    let cleanContent = content.trim();
+
+    // Remove code blocks
+    if (cleanContent.startsWith('```')) {
+        const firstNewLine = cleanContent.indexOf('\n');
+        if (firstNewLine !== -1) {
+            cleanContent = cleanContent.slice(firstNewLine + 1);
+        }
+        if (cleanContent.endsWith('```')) {
+            cleanContent = cleanContent.slice(0, -3).trim();
+        }
+    }
+
+    try {
+        return JSON.parse(cleanContent) as T;
+    } catch (e) {
+        // Fallback: Tentativa de extrair o JSON se o LLM injetou texto antes ou depois
+        try {
+            const firstBrace = cleanContent.indexOf('{');
+            const lastBrace = cleanContent.lastIndexOf('}');
+            const firstBracket = cleanContent.indexOf('[');
+            const lastBracket = cleanContent.lastIndexOf(']');
+
+            let start = -1;
+            let end = -1;
+
+            if (firstBrace !== -1 && lastBrace !== -1 && (firstBracket === -1 || firstBrace < firstBracket)) {
+                start = firstBrace;
+                end = lastBrace;
+            } else if (firstBracket !== -1 && lastBracket !== -1) {
+                start = firstBracket;
+                end = lastBracket;
+            }
+
+            if (start !== -1 && end !== -1 && end > start) {
+                const extracted = cleanContent.substring(start, end + 1);
+                return JSON.parse(extracted) as T;
+            }
+        } catch (fallbackError) {
+            // Se o fallback também falhar, segue para o erro crítico
+        }
+
+        console.error('[utils] Erro crítico ao parsear JSON do LLM. Conteúdo truncado recebido:', cleanContent.substring(0, 200) + '...', '... (total chars: ' + cleanContent.length + ')');
+        throw e;
+    }
+}

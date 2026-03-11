@@ -6,6 +6,7 @@ import { composeSlideImage } from '@/lib/social/image-composer';
 import { withRetry } from '@/lib/utils';
 import { AnalyzedPost } from '@/lib/agents/analysis-agent';
 import { Channel, PubStatus } from '@prisma/client';
+import { getMergedConfigs } from '@/lib/db/config-helper';
 
 /**
  * Publisher Agent — publica um post processado em todos os canais configurados
@@ -14,6 +15,7 @@ export class PublisherAgent {
     private linkedin = new LinkedInPublisher();
     private whatsapp = new WhatsAppPublisher();
 
+
     async publishAll(
         postId: string,
         analyzed: AnalyzedPost,
@@ -21,11 +23,9 @@ export class PublisherAgent {
     ): Promise<{ channel: Channel; success: boolean }[]> {
         const results: { channel: Channel; success: boolean }[] = [];
 
-        const configs = await prisma.systemConfig.findMany({
-            where: { key: { in: ['CHANNEL_INSTAGRAM_FEED', 'CHANNEL_INSTAGRAM_STORY', 'CHANNEL_LINKEDIN', 'CHANNEL_WHATSAPP', 'ACTIVE_INSTAGRAM_ACCOUNTS'] } }
-        });
-        const getConfig = (key: string) => configs.find((c: any) => c.key === key)?.value;
-        const isEnabled = (key: string) => getConfig(key) === undefined ? true : getConfig(key) === true;
+        const configKeys = ['CHANNEL_INSTAGRAM_FEED', 'CHANNEL_INSTAGRAM_STORY', 'CHANNEL_LINKEDIN', 'CHANNEL_WHATSAPP', 'ACTIVE_INSTAGRAM_ACCOUNTS'];
+        const globalConfigs = await getMergedConfigs('global', configKeys);
+        const isEnabledGlobal = (key: string) => globalConfigs[key] === true;
 
         // Ler contas do env
         const allAccountsStr = process.env.INSTAGRAM_ACCOUNTS;
@@ -35,10 +35,9 @@ export class PublisherAgent {
         } catch (e) { console.error("Erro ao fazer parse de INSTAGRAM_ACCOUNTS", e); }
 
         // Ler contas ativas salvas
-        const activeIgAccIds: string[] = Array.isArray(getConfig('ACTIVE_INSTAGRAM_ACCOUNTS')) ? (getConfig('ACTIVE_INSTAGRAM_ACCOUNTS') as string[]) : [];
+        const activeIgAccIds: string[] = Array.isArray(globalConfigs['ACTIVE_INSTAGRAM_ACCOUNTS']) ? (globalConfigs['ACTIVE_INSTAGRAM_ACCOUNTS'] as string[]) : [];
 
         // Se ativou o feed mas não configurou contas ativas, pode tentar cair num fallback (primeira conta)
-        // Isso mantem o sistema retro-compatível c/ configs velhas
         const activeAccountsToUse = activeIgAccIds.length > 0
             ? allAccounts.filter(acc => activeIgAccIds.includes(acc.id))
             : allAccounts.slice(0, 1);
@@ -46,11 +45,15 @@ export class PublisherAgent {
         const tasks: Promise<void>[] = [];
 
         // Publica em paralelo nos canais habilitados
-        if (isEnabled('CHANNEL_INSTAGRAM_FEED') || isEnabled('CHANNEL_INSTAGRAM_STORY')) {
+        if (isEnabledGlobal('CHANNEL_INSTAGRAM_FEED') || isEnabledGlobal('CHANNEL_INSTAGRAM_STORY')) {
             for (const acc of activeAccountsToUse) {
+                // Fetch merged configs for THIS specific account
+                const accConfigs = await getMergedConfigs(acc.id, configKeys);
+                const isEnabledAcc = (key: string) => accConfigs[key] === true;
+
                 const instagram = new InstagramPublisher(acc.accessToken, acc.userId);
 
-                if (isEnabled('CHANNEL_INSTAGRAM_FEED')) {
+                if (isEnabledAcc('CHANNEL_INSTAGRAM_FEED')) {
                     tasks.push(this.publishChannel(postId, Channel.INSTAGRAM_FEED, () =>
                         instagram.publishFeed(imageUrl ?? this.defaultImage(analyzed.title), analyzed.instagram.feed),
                         acc.id
@@ -58,7 +61,7 @@ export class PublisherAgent {
                         .catch(() => { results.push({ channel: Channel.INSTAGRAM_FEED, success: false }); }));
                 }
 
-                if (isEnabled('CHANNEL_INSTAGRAM_STORY')) {
+                if (isEnabledAcc('CHANNEL_INSTAGRAM_STORY')) {
                     tasks.push(this.publishChannel(postId, Channel.INSTAGRAM_STORY, () =>
                         instagram.publishStory(imageUrl ?? this.defaultImage(analyzed.title)),
                         acc.id
@@ -68,14 +71,14 @@ export class PublisherAgent {
             }
         }
 
-        if (isEnabled('CHANNEL_LINKEDIN')) {
+        if (isEnabledGlobal('CHANNEL_LINKEDIN')) {
             tasks.push(this.publishChannel(postId, Channel.LINKEDIN, () =>
                 this.linkedin.publishPost(analyzed.linkedin, imageUrl)
             ).then(() => { results.push({ channel: Channel.LINKEDIN, success: true }); })
                 .catch(() => { results.push({ channel: Channel.LINKEDIN, success: false }); }));
         }
 
-        if (isEnabled('CHANNEL_WHATSAPP')) {
+        if (isEnabledGlobal('CHANNEL_WHATSAPP')) {
             tasks.push(this.publishChannel(postId, Channel.WHATSAPP, () =>
                 imageUrl ? this.whatsapp.sendImage(imageUrl, analyzed.whatsapp) : this.whatsapp.sendText(analyzed.whatsapp)
             ).then(() => { results.push({ channel: Channel.WHATSAPP, success: true }); })
@@ -117,11 +120,9 @@ export class PublisherAgent {
         // 2. Publicar carrossel no Instagram com as imagens compostas
         const firstPostId = postIds[0];
 
-        const feedConfig = await prisma.systemConfig.findUnique({ where: { key: 'CHANNEL_INSTAGRAM_FEED' } });
-        const feedEnabled = feedConfig ? feedConfig.value === true : true;
-
-        const activeAccConfig = await prisma.systemConfig.findUnique({ where: { key: 'ACTIVE_INSTAGRAM_ACCOUNTS' } });
-        const activeIgAccIds: string[] = Array.isArray(activeAccConfig?.value) ? (activeAccConfig?.value as string[]) : [];
+        const configKeys = ['CHANNEL_INSTAGRAM_FEED', 'CHANNEL_INSTAGRAM_STORY', 'CHANNEL_LINKEDIN', 'CHANNEL_WHATSAPP', 'ACTIVE_INSTAGRAM_ACCOUNTS'];
+        const globalConfigs = await getMergedConfigs('global', configKeys);
+        const activeIgAccIds: string[] = Array.isArray(globalConfigs['ACTIVE_INSTAGRAM_ACCOUNTS']) ? (globalConfigs['ACTIVE_INSTAGRAM_ACCOUNTS'] as string[]) : [];
 
         const allAccountsStr = process.env.INSTAGRAM_ACCOUNTS;
         let allAccounts: { id: string, name: string, userId: string, accessToken: string }[] = [];
@@ -133,8 +134,11 @@ export class PublisherAgent {
             ? allAccounts.filter(acc => activeIgAccIds.includes(acc.id))
             : allAccounts.slice(0, 1);
 
-        if (feedEnabled) {
-            for (const acc of activeAccountsToUse) {
+        for (const acc of activeAccountsToUse) {
+            const accConfigs = await getMergedConfigs(acc.id, configKeys);
+            const feedEnabledAcc = accConfigs['CHANNEL_INSTAGRAM_FEED'] === true;
+
+            if (feedEnabledAcc) {
                 const instagram = new InstagramPublisher(acc.accessToken, acc.userId);
 
                 await Promise.allSettled([

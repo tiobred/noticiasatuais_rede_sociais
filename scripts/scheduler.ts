@@ -13,64 +13,104 @@ const supabase = createClient(
 const SLIDE_BUCKET = 'carousel-slides';
 
 /**
- * Scheduler Service — gerencia o agendamento de postagens baseado no SystemConfig
+ * Scheduler Service — gerencia o agendamento de postagens baseado no SystemConfig isolado por Conta
  */
 async function startScheduler() {
-    console.log('\n🕒 Iniciando serviço de agendamento...');
+    console.log('\n🕒 Iniciando serviço de agendamento (Modo Multi-Contas)...');
 
     // Limpeza inicial de possíveis runs travados
     await cleanupStuckRuns();
 
-    // 1. Buscar horários do banco
-    const scheduleConfig = await prisma.systemConfig.findUnique({
-        where: { key: 'POSTING_TIMES' }
-    });
+    const allAccountsStr = process.env.INSTAGRAM_ACCOUNTS || '[]';
+    let allAccounts: { id: string, name: string }[] = [];
+    try {
+        allAccounts = JSON.parse(allAccountsStr);
+    } catch (e) { }
 
-    const times: string[] = (scheduleConfig?.value as string[]) || ['08:00', '13:00', '21:00'];
-    console.log(`📌 Horários configurados: ${times.join(', ')}`);
+    console.log(`📌 Encontradas ${allAccounts.length} contas configuradas no .env.`);
 
-    // 2. Agendar cada horário
-    times.forEach(time => {
-        const [hour, minute] = time.split(':');
-        const cronExpr = `${minute} ${hour} * * *`;
+    // 1. Cron Job dinâmico que checa minuto a minuto se há post pendente para alguma conta
+    cron.schedule('* * * * *', async () => {
+        const now = new Date();
+        const currentHour = now.getHours().toString().padStart(2, '0');
+        const currentMinute = now.getMinutes().toString().padStart(2, '0');
+        const currentTime = `${currentHour}:${currentMinute}`;
 
-        console.log(`📅 Agendado: ${cronExpr} (Todo dia às ${time})`);
+        const accountsToRun = [];
 
-        cron.schedule(cronExpr, async () => {
-            const jobConfig = await prisma.systemConfig.findUnique({ where: { key: 'JOB_SCHEDULER' } });
-            if (jobConfig && jobConfig.value === false) {
-                console.log(`⏸️ [${new Date().toLocaleTimeString()}] Pipeline agendado pulado (Desativado no painel).`);
-                return;
-            }
-
-            console.log(`\n🚀 [${new Date().toLocaleTimeString()}] Iniciando pipeline agendado...`);
+        for (const account of allAccounts) {
             try {
-                const result = await runPipeline();
-                console.log(`✅ Pipeline concluído. Posts encontrados: ${result.postsFound}, Novos: ${result.postsNew}, Publicados: ${result.postsPublished}`);
+                // Recupera configurações atualizadas para esta conta especifica
+                const configs = await prisma.systemConfig.findMany({ where: { accountId: account.id } });
+                const configMap = configs.reduce((acc, curr) => {
+                    acc[curr.key] = curr.value;
+                    return acc;
+                }, {} as Record<string, any>);
+
+                if (configMap['isActive'] === false) {
+                    continue; // Conta desativada
+                }
+
+                if (configMap['schedulerEnabled'] === false) {
+                    continue; // Agendamento automático desativado pra esta conta
+                }
+
+                const isFeedEnabled = configMap['CHANNEL_INSTAGRAM_FEED'] === true;
+                const isStoryEnabled = configMap['CHANNEL_INSTAGRAM_STORY'] === true;
+                const isWhatsappEnabled = configMap['CHANNEL_WHATSAPP'] === true;
+
+                if (!isFeedEnabled && !isStoryEnabled && !isWhatsappEnabled) {
+                    continue; // Nenhum canal de publicação ativo
+                }
+
+                const postingTimesConf = configMap['postingTimes'] || {};
+                const postingTimes = postingTimesConf['instagram'] || [];
+
+                if (postingTimes.includes(currentTime)) {
+                    accountsToRun.push(account);
+                }
+
             } catch (err) {
-                console.error('❌ Erro durante execução agendada:', err);
+                console.error(`❌ Falha ao processar config job scheduler para [${account.id}]:`, err);
             }
-        });
+        }
+
+        if (accountsToRun.length > 0) {
+            // Executa em background de forma sequencial para não bloquear outras verificações de cron
+            (async () => {
+                const sleep = (ms: number) => new Promise(resolve => setTimeout(resolve, ms));
+                for (let i = 0; i < accountsToRun.length; i++) {
+                    const account = accountsToRun[i];
+                    console.log(`\n🚀 [${now.toLocaleTimeString()}] Iniciando pipeline agendado para a conta: ${account.name} (${account.id}) @ ${currentTime}`);
+
+                    try {
+                        const result = await runPipeline(account.id);
+                        console.log(`✅ Pipeline da conta [${account.id}] concluído. Posts encontrados: ${result.postsFound}, Novos: ${result.postsNew}, Publicados: ${result.postsPublished}`);
+                    } catch (err) {
+                        console.error(`❌ Erro durante execução agendada para [${account.id}]:`, err);
+                    }
+
+                    // Aguarda 1 minuto entre execuções caso ainda haja contas neste lote
+                    if (i < accountsToRun.length - 1) {
+                        console.log(`⏳ Aguardando 1 minuto antes de executar o próximo pipeline agendado para evitar bloqueios...`);
+                        await sleep(60000);
+                    }
+                }
+            })();
+        }
     });
 
-    console.log('🚀 Scheduler em execução. Mantenha este processo ativo.');
+    console.log('🚀 Scheduler em execução (Polling * * * * *). Mantenha este processo ativo.');
 
     // Limpeza periódica de runs travados (cada 1 hora)
     cron.schedule('0 * * * *', async () => {
-        const jobConfig = await prisma.systemConfig.findUnique({ where: { key: 'JOB_CLEANUP' } });
-        if (jobConfig && jobConfig.value === false) return;
         await cleanupStuckRuns();
     });
 
     // Limpeza de imagens do Storage (todo dia à meia-noite)
     // Apaga slides gerados há mais de 24h — posts no banco são mantidos
     cron.schedule('0 0 * * *', async () => {
-        const jobConfig = await prisma.systemConfig.findUnique({ where: { key: 'JOB_CLEANUP' } });
-        if (jobConfig && jobConfig.value === false) {
-            console.log('⏸️ Limpeza noturna pulada (Desativada no painel).');
-            return;
-        }
-        console.log('\n🗑️  Iniciando limpeza noturna de imagens...');
+        console.log('\n🗑️ Iniciando limpeza noturna de imagens...');
         await cleanupOldSlides();
     });
 
@@ -82,14 +122,14 @@ async function startScheduler() {
  * Limpa runs que ficaram presos no status 'RUNNING'
  */
 async function cleanupStuckRuns() {
-    console.log('🧹 Verificando runs travados...');
-    const thirtyMinutesAgo = new Date(Date.now() - 30 * 60 * 1000);
+    console.log('Sweep: Verificando runs travados (timeout > 15m)...');
+    const fifteenMinutesAgo = new Date(Date.now() - 15 * 60 * 1000);
 
     try {
         const result = await prisma.agentRun.updateMany({
             where: {
                 status: RunStatus.RUNNING,
-                startedAt: { lt: thirtyMinutesAgo }
+                startedAt: { lt: fifteenMinutesAgo }
             },
             data: {
                 status: RunStatus.FAILED,

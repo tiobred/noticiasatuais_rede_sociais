@@ -1,0 +1,61 @@
+﻿Iniciando pipeline para Tiobred...
+
+==================================================
+[orchestrator|Tiobred] ≡ƒÜÇ Pipeline iniciado ΓÇö Run: cmmfpjayp0000ilwv3fbgaaxd
+==================================================
+
+[scraper|Tiobred] Inicializando RSS parser com 2 fontes...
+[orchestrator|Tiobred] Etapa 1/3: Scraping (Limit: 4)...
+[scraper|Tiobred] Buscando feed: CNBC Finance (https://search.cnbc.com/rs/search/combinedcms/view.xml?profile=12000000&id=10000664)
+[scraper|Tiobred] Buscando feed: Yahoo Finance (https://finance.yahoo.com/news/rssindex)
+node.exe : [scraper|Tiobred] Erro ao 
+processar feed CNBC Finance: Status code 503
+No C:\Program Files\nodejs\npx.ps1:29 
+caractere:3
++   & $NODE_EXE $NPX_CLI_JS $args
++   ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+    + CategoryInfo          : NotSpecified: 
+    ([scraper|Tiobre...Status code 503:Str  
+  ing) [], RemoteException
+    + FullyQualifiedErrorId : NativeCommand 
+   Error
+ 
+[scraper|Tiobred] 4 itens processados de Yahoo Finance
+[scraper|Tiobred] Total de 4 itens com conte├║do encontrados nos feeds RSS
+[orchestrator|Tiobred] Verificando alvos do Instagram...
+[InstagramScraperAgent] Iniciando scraping para accountId: Tiobred com 1 alvos.
+[InstagramScraperAgent] Verificando alvo @jornadatop...
+[instagram] Buscando posts de @jornadatop via Business Discovery...
+[InstagramScraperAgent] Novo post eleg├¡vel encontrado: https://www.instagram.com/reel/DVill0qDgbG/ (10494 likes, 314 coment├írios)
+[InstagramScraperAgent] Novo post eleg├¡vel encontrado: https://www.instagram.com/reel/DVifHnPjrLo/ (14038 likes, 551 coment├írios)
+[InstagramScraperAgent] Novo post eleg├¡vel encontrado: https://www.instagram.com/reel/DVf6ZKCuDE2/ (12098 likes, 128 coment├írios)
+[InstagramScraperAgent] Novo post eleg├¡vel encontrado: https://www.instagram.com/reel/DVdhaA5Dolv/ (29967 likes, 414 coment├írios)
+[InstagramScraperAgent] Novo post eleg├¡vel encontrado: https://www.instagram.com/reel/DVf6VQ_ODrR/ (24255 likes, 399 coment├írios)
+[InstagramScraperAgent] Scraping conclu├¡do. 5 posts eleg├¡veis encontrados.
+[scraper|Tiobred] 4 not├¡cias novas exclusivas para a conta (de 9 verificadas hoje)
+[scraper|Tiobred] RSS parser finalizado.
+
+[orchestrator|Tiobred] Etapa 2/3: Criando posts e analisando lote (4 itens)...
+[analysis] Consolidando lote de 4 not├¡cias...
+[llm-router] Usando openrouter (OR:0 / GEM:0 calls)
+[analysis] Γ£à Consolida├º├úo de lote conclu├¡da (4 itens)
+
+[orchestrator|Tiobred] Etapa 3/3: Publicando resultados...
+[orchestrator|Tiobred] ΓÅ¡∩╕Å Pulando Instagram Feed (desativado nas configura├º├╡es)
+[orchestrator|Tiobred] Publicando Story no Instagram...
+[composer] Compondo story 2├ù (2160├ù3840): "StubHub com rating neutro..."
+[composer] Γ£à Story pronto: story-1772850738479.jpg
+[instagram] Publicando no story...
+[instagram] Γ£à Story publicado: 17888392008442374
+[orchestrator|Tiobred] Γ£à Instagram Story OK
+[orchestrator|Tiobred] ΓÅ¡∩╕Å Pulando WhatsApp (desativado nas configura├º├╡es)
+
+==================================================
+[orchestrator|Tiobred] ≡ƒÅü Pipeline conclu├¡do: 4 publicados.
+==================================================
+
+Resultado do Pipeline: {
+  "postsFound": 9,
+  "postsNew": 4,
+  "postsPublished": 4
+}

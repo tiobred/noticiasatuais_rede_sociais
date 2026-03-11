@@ -1,0 +1,51 @@
+﻿--- Testando Fluxo de Postagem Original ---
+Iniciando pipeline...
+
+==================================================
+[orchestrator|Tiobred] ≡ƒÜÇ Pipeline iniciado ΓÇö Run: cmmgzbj1q0000hhbs4rs0vh0x
+==================================================
+
+[scraper|Tiobred] Inicializando RSS parser com 2 fontes...
+[orchestrator|Tiobred] Etapa 1/3: Scraping (Limit: 4)...
+[scraper|Tiobred] Buscando feed: CNBC Finance (https://search.cnbc.com/rs/search/combinedcms/view.xml?profile=12000000&id=10000664)
+[scraper|Tiobred] Buscando feed: Yahoo Finance (https://finance.yahoo.com/news/rssindex)
+[scraper|Tiobred] 4 itens processados de Yahoo Finance
+[scraper|Tiobred] Total de 4 itens com conte├║do encontrados nos feeds RSS
+[orchestrator|Tiobred] Verificando alvos do Instagram...
+[InstagramScraperAgent] Iniciando scraping para accountId: Tiobred com 1 alvos.
+[InstagramScraperAgent] Verificando alvo @jornadatop...
+[instagram] Buscando posts de @jornadatop via Business Discovery...
+[InstagramScraperAgent] Novo post eleg├¡vel encontrado: https://www.instagram.com/reel/DVlYlPHDs5J/ (8195 likes, 304 coment├írios)
+[InstagramScraperAgent] Novo post eleg├¡vel encontrado: https://www.instagram.com/reel/DVlK1LYEYYL/ (35226 likes, 633 coment├írios)
+[InstagramScraperAgent] Novo post eleg├¡vel encontrado: https://www.instagram.com/reel/DVlD6E_jiPd/ (6259 likes, 140 coment├írios)
+[InstagramScraperAgent] Novo post eleg├¡vel encontrado: https://www.instagram.com/reel/DVizyASDkqH/ (3957 likes, 126 coment├írios)
+[InstagramScraperAgent] Novo post eleg├¡vel encontrado: https://www.instagram.com/reel/DVill0qDgbG/ (14200 likes, 380 coment├írios)
+[InstagramScraperAgent] Novo post eleg├¡vel encontrado: https://www.instagram.com/reel/DVifHnPjrLo/ (21096 likes, 744 coment├írios)
+[InstagramScraperAgent] Scraping conclu├¡do. 6 posts eleg├¡veis encontrados.
+[scraper|Tiobred] 10 not├¡cias novas exclusivas para a conta (de 10 verificadas hoje)
+[scraper|Tiobred] RSS parser finalizado.
+
+[orchestrator|Tiobred] Etapa 2/3: Criando posts e analisando lote (10 itens)...
+[analysis] Consolidando lote de 4 not├¡cias...
+[llm-router] Usando openrouter (OR:0 / GEM:0 calls)
+[analysis] Γ£à Consolida├º├úo de lote conclu├¡da (4 itens)
+
+[orchestrator|Tiobred] Etapa 3/3: Publicando resultados...
+[orchestrator|Tiobred] ΓÅ¡∩╕Å Pulando Instagram Feed (desativado ou heran├ºa global false)
+[orchestrator|Tiobred] Publicando Stories no Instagram (10 itens)...
+[orchestrator|Tiobred] Compondo story 1/5: "Post do @jornadatop" (Original: true)
+[composer] Compondo story original (9:16 fallback) para: https://instagram.fssa3-1.fna.fbcdn.net/o1/v/t16/f...
+[composer] Γ£à Story original pronto: story-orig-1772927645918-226.jpg
+[instagram] Publicando no story...
+[instagram] Γ£à Story publicado: 18122380681597907
+[orchestrator|Tiobred] Compondo story 2/5: "Post do @jornadatop" (Original: true)
+[composer] Compondo story original (9:16 fallback) para: https://instagram.fssa3-1.fna.fbcdn.net/o1/v/t16/f...
+[composer] Γ£à Story original pronto: story-orig-1772927660769-168.jpg
+[instagram] Publicando no story...
+[orchestrator|Tiobred] ΓÅ¡∩╕Å Pulando WhatsApp (desativado ou heran├ºa global false)
+
+==================================================
+[orchestrator|Tiobred] ≡ƒÅü Pipeline conclu├¡do: 1 publicados.
+==================================================
+
+--- Fim do Teste ---

@@ -12,9 +12,11 @@ export interface RawNewsItem {
     sourceName: string;
     tags: string[];
     rawContent: string;
+    postOriginal?: boolean;
+    metadata?: any;
 }
 
-const FEEDS = [
+const DEFAULT_FEEDS = [
     { name: 'InfoMoney', url: 'https://www.infomoney.com.br/feed/' },
     { name: 'Exame', url: 'https://exame.com/feed/' },
     { name: 'G1 Economia', url: 'https://g1.globo.com/rss/g1/economia/' }
@@ -26,9 +28,16 @@ const FEEDS = [
 export class ScraperAgent {
     private parser: Parser;
     private limit: number;
+    private accountId: string;
+    private feeds: { name: string, url: string }[];
 
-    constructor(limit: number = 2) {
+    constructor(limit: number = 2, accountId: string, dataSources: { name: string, url: string }[] = []) {
         this.limit = limit;
+        this.accountId = accountId;
+        // Valida e usa fontes customizadas apenas se forem não nulas e tiverem URL válida (começando com http)
+        const validSources = dataSources.filter(s => s && s.url && s.url.startsWith('http'));
+        this.feeds = validSources.length > 0 ? validSources : DEFAULT_FEEDS;
+
         this.parser = new Parser({
             customFields: {
                 item: ['description', 'content:encoded', 'category']
@@ -38,12 +47,12 @@ export class ScraperAgent {
 
     async init(): Promise<void> {
         // Inicialização rápida, sem necessidade de browser
-        console.log('[scraper] Inicializando RSS parser...');
+        console.log(`[scraper|${this.accountId}] Inicializando RSS parser com ${this.feeds.length} fontes...`);
     }
 
     async close(): Promise<void> {
         // Nenhum recurso pesado para fechar
-        console.log('[scraper] RSS parser finalizado.');
+        console.log(`[scraper|${this.accountId}] RSS parser finalizado.`);
     }
 
     /**
@@ -52,9 +61,9 @@ export class ScraperAgent {
     async scrape(): Promise<RawNewsItem[]> {
         const items: RawNewsItem[] = [];
 
-        for (const feedConfig of FEEDS) {
+        for (const feedConfig of this.feeds) {
             try {
-                console.log(`[scraper] Buscando feed: ${feedConfig.name} (${feedConfig.url})`);
+                console.log(`[scraper|${this.accountId}] Buscando feed: ${feedConfig.name} (${feedConfig.url})`);
                 const feed = await this.parser.parseURL(feedConfig.url);
 
                 // Pegar os itens mais recentes (limite configurável)
@@ -70,11 +79,27 @@ export class ScraperAgent {
                     // Extrai texto limpo e imagem usando cheerio
                     const $ = cheerio.load(htmlContent);
                     const bodyText = $.text().trim();
-                    const imageEl = $('img').first();
-                    const imageUrl = imageEl.attr('src') ?? undefined;
+                    let imageUrl: string | undefined = undefined;
 
-                    // Ignorar se não tiver conteúdo suficiente (alguns feeds só mandam título)
-                    if (!title || bodyText.length < 20) continue;
+                    // 1. Tentar encontrar <img> no HTML
+                    const imageEl = $('img').first();
+                    imageUrl = imageEl.attr('src') ?? undefined;
+
+                    // 2. Tentar encontrar no 'enclosure' (padrão RSS)
+                    if (!imageUrl && item.enclosure && item.enclosure.url) {
+                        imageUrl = item.enclosure.url;
+                    }
+
+                    // 3. Tentar encontrar no 'media:content' (padrão comum em feeds modernos)
+                    if (!imageUrl && (item as any)['media:content'] && (item as any)['media:content'].$) {
+                        imageUrl = (item as any)['media:content'].$.url;
+                    }
+                    if (!imageUrl && (item as any)['media:thumbnail'] && (item as any)['media:thumbnail'].$) {
+                        imageUrl = (item as any)['media:thumbnail'].$.url;
+                    }
+
+                    // Ignorar se não tiver título (aceita conteúdo curto, pois alguns feeds enviam apenas resumos breves)
+                    if (!title) continue;
 
                     // Categorias / Tags
                     let tags: string[] = [];
@@ -84,8 +109,10 @@ export class ScraperAgent {
                         tags = [item.categories];
                     }
 
+                    tags.push(`account:${this.accountId}`);
+
                     const sourceContent = `${title}\n${bodyText}`;
-                    const sourceId = hashContent(sourceContent);
+                    const sourceId = hashContent(`${this.accountId}_${sourceContent}`);
 
                     items.push({
                         sourceId,
@@ -98,14 +125,14 @@ export class ScraperAgent {
                         rawContent: sourceContent
                     });
                 }
-                console.log(`[scraper] ${recentItems.length} itens processados de ${feedConfig.name}`);
+                console.log(`[scraper|${this.accountId}] ${recentItems.length} itens processados de ${feedConfig.name}`);
 
             } catch (error: any) {
-                console.error(`[scraper] Erro ao processar feed ${feedConfig.name}:`, error.message || error);
+                console.error(`[scraper|${this.accountId}] Erro ao processar feed ${feedConfig.name}:`, error.message || error);
             }
         }
 
-        console.log(`[scraper] Total de ${items.length} itens com conteúdo encontrados nos feeds RSS`);
+        console.log(`[scraper|${this.accountId}] Total de ${items.length} itens com conteúdo encontrados nos feeds RSS`);
         return items;
     }
 
@@ -122,7 +149,7 @@ export class ScraperAgent {
         });
         const existingSet = new Set(existing.map(e => e.sourceId));
         const newItems = items.filter(i => !existingSet.has(i.sourceId));
-        console.log(`[scraper] ${newItems.length} notícias novas (de ${items.length} verificadas hoje)`);
+        console.log(`[scraper|${this.accountId}] ${newItems.length} notícias novas exclusivas para a conta (de ${items.length} verificadas hoje)`);
         return newItems;
     }
 }

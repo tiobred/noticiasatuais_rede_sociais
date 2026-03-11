@@ -1,0 +1,34 @@
+Accounts in SystemConfig: [
+  {
+    "accountId": "global"
+  },
+  {
+    "accountId": "promo"
+  },
+  {
+    "accountId": "Tiobred"
+  }
+]
+
+--- Config for global ---
+Counts: PENDING=0, PROCESSED=0, PUBLISHED=0
+Channels Active: [
+  "CHANNEL_INSTAGRAM_FEED=false",
+  "CHANNEL_INSTAGRAM_STORY=false"
+]
+
+--- Config for promo ---
+Counts: PENDING=0, PROCESSED=0, PUBLISHED=0
+Channels Active: [
+  "CHANNEL_INSTAGRAM_STORY=true",
+  "CHANNEL_INSTAGRAM_FEED=false",
+  "CHANNEL_INSTAGRAM_REELS=true"
+]
+
+--- Config for Tiobred ---
+Counts: PENDING=0, PROCESSED=4, PUBLISHED=8
+Channels Active: [
+  "CHANNEL_INSTAGRAM_REELS=true",
+  "CHANNEL_INSTAGRAM_STORY=true",
+  "CHANNEL_INSTAGRAM_FEED=false"
+]

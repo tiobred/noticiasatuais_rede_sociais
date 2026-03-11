@@ -1,0 +1,74 @@
+﻿node : prisma:tryLoadEnv Environment 
+variables not found at null +10ms
+No linha:1 caractere:1
++ node scripts/debug-reels.js > 
+debug_output.txt 2>&1; type debug_outpu 
+...
++ ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+~~~~~~~~~~~~~
+    + CategoryInfo          : NotSpecif 
+   ied: (prisma:tryLoadE...d at null +  
+  10ms:String) [], RemoteException
+    + FullyQualifiedErrorId : NativeCom 
+   mandError
+ 
+prisma:tryLoadEnv Environment variables 
+loaded from C:\Users\Anderson\noticias_r
+edes_sociais\noticiasatuais_rede_sociais
+\.env +1ms
+prisma:client 
+checkPlatformCaching:postinstall false 
++3ms
+prisma:client 
+checkPlatformCaching:ciName undefined 
++0ms
+prisma:tryLoadEnv Environment variables 
+not found at null +0ms
+prisma:tryLoadEnv Environment variables 
+loaded from C:\Users\Anderson\noticias_r
+edes_sociais\noticiasatuais_rede_sociais
+\.env +0ms
+prisma:client dirname C:\Users\Anderson\
+noticias_redes_sociais\noticiasatuais_re
+de_sociais\node_modules\.prisma\client 
++1ms
+prisma:client relativePath 
+../../../prisma +0ms
+prisma:client cwd C:\Users\Anderson\noti
+cias_redes_sociais\noticiasatuais_rede_s
+ociais\prisma +0ms
+prisma:client clientVersion 5.22.0 +1ms
+prisma:client:libraryEngine 
+internalSetup +1ms
+--- Checking Config for account: promo ---
+TypeError: Cannot read properties of 
+undefined (reading 'findMany')
+    at main (C:\Users\Anderson\noticias_
+redes_sociais\noticiasatuais_rede_sociai
+s\scripts\debug-reels.js:7:48)
+    at Object.<anonymous> (C:\Users\Ande
+rson\noticias_redes_sociais\noticiasatua
+is_rede_sociais\scripts\debug-reels.js:6
+6:1)
+    at Module._compile (node:internal/mo
+dules/cjs/loader:1730:14)
+    at Object..js (node:internal/modules
+/cjs/loader:1895:10)
+    at Module.load (node:internal/module
+s/cjs/loader:1465:32)
+    at Function._load (node:internal/mod
+ules/cjs/loader:1282:12)
+    at TracingChannel.traceSync 
+(node:diagnostics_channel:322:14)
+    at wrapModuleLoad (node:internal/mod
+ules/cjs/loader:235:24)
+    at Function.executeUserEntryPoint 
+[as runMain] 
+(node:internal/modules/run_main:170:5)
+    at 
+node:internal/main/run_main_module:36:49
+prisma:client:engines:resolveEnginePath 
+enginePath C:\Users\Anderson\noticias_re
+des_sociais\noticiasatuais_rede_sociais\
+node_modules\.prisma\client\query_engine
+-windows.dll.node +2ms

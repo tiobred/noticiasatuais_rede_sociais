@@ -1,20 +1,24 @@
 'use client';
 
-import { Bell, RefreshCw } from 'lucide-react';
+import { Bell, RefreshCw, Menu } from 'lucide-react';
 import { useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { formatDateBR } from '@/lib/utils';
+import { useSidebar } from './SidebarContext';
+import { NewsTicker } from '../dashboard/NewsTicker';
 
 interface TopBarProps {
     title: string;
     subtitle?: string;
+    news?: string;
 }
 
-export function TopBar({ title, subtitle }: TopBarProps) {
+export function TopBar({ title, subtitle, news }: TopBarProps) {
     const [running, setRunning] = useState(false);
     const [lastRun, setLastRun] = useState<Date | null>(null);
     const [runStatus, setRunStatus] = useState<'idle' | 'ok' | 'error'>('idle');
     const router = useRouter();
+    const { toggleSidebar } = useSidebar();
 
     const handleRun = async () => {
         if (running) return;
@@ -35,13 +39,23 @@ export function TopBar({ title, subtitle }: TopBarProps) {
     };
 
     return (
-        <header className="h-16 glass border-b border-white/5 flex items-center justify-between px-6">
-            <div>
-                <h1 className="text-base font-semibold text-white">{title}</h1>
-                {subtitle && <p className="text-xs text-white/40">{subtitle}</p>}
+        <header className="h-16 glass border-b border-white/5 flex items-center justify-between px-4 md:px-6">
+            <div className="flex items-center gap-3">
+                <button
+                    onClick={toggleSidebar}
+                    className="md:hidden w-9 h-9 rounded-lg glass glass-hover flex items-center justify-center text-white/70 hover:text-white"
+                >
+                    <Menu className="w-5 h-5" />
+                </button>
+                <div>
+                    <h1 className="text-base font-semibold text-white">{title}</h1>
+                    {subtitle && <p className="text-xs text-white/40 hidden sm:block">{subtitle}</p>}
+                </div>
             </div>
 
             <div className="flex items-center gap-3">
+                <NewsTicker news={news} />
+
                 {lastRun && (
                     <span className="text-xs text-white/30 font-mono hidden sm:block">
                         Último run: {formatDateBR(lastRun)}

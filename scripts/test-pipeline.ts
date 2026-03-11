@@ -9,13 +9,15 @@ import { ScraperAgent } from '../lib/agents/scraper-agent';
 import { AnalysisAgent } from '../lib/agents/analysis-agent';
 
 const DRY_RUN = process.argv.includes('--dry-run');
+// Ativa o modo de teste no roteador de IA para economizar tokens
+process.env.IS_TEST_RUN = 'true';
 
 async function main() {
     console.log(`\n🔬 Testando pipeline — modo: ${DRY_RUN ? 'DRY-RUN' : 'REAL'}\n`);
 
     // 1. Scraper
     console.log('📡 Etapa 1: Scraping de Feeds RSS (InfoMoney, etc)...');
-    const scraper = new ScraperAgent();
+    const scraper = new ScraperAgent(2, 'Tiobred');
     await scraper.init();
     const items = await scraper.scrape();
     await scraper.close();
@@ -43,9 +45,9 @@ async function main() {
 
         console.log('\n✅ Análise concluída:');
         console.log(`   Título PT-BR: ${analyzed.title}`);
-        console.log(`   Hashtags: #${analyzed.hashtags.slice(0, 5).join(' #')}`);
-        console.log(`   Instagram: ${analyzed.instagram.feed.slice(0, 100)}...`);
-        console.log(`   WhatsApp: ${analyzed.whatsapp.slice(0, 100)}...`);
+        console.log(`   Hashtags: ${JSON.stringify(analyzed?.hashtags)}`);
+        console.log(`   Instagram: ${JSON.stringify(analyzed?.instagram)}`);
+        console.log(`   WhatsApp: ${analyzed?.whatsapp?.slice?.(0, 100) ?? analyzed?.whatsapp}...`);
     }
 
     console.log('\n✅ Pipeline testado com sucesso!\n');

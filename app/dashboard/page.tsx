@@ -1,18 +1,35 @@
+export const dynamic = 'force-dynamic';
+
 import { TopBar } from '@/components/layout/TopBar';
 import { MetricCard } from '@/components/dashboard/MetricCard';
 import { AgentStatus } from '@/components/dashboard/AgentStatus';
 import { PostFeed } from '@/components/dashboard/PostFeed';
+import { DashboardControls } from '@/components/dashboard/DashboardControls';
 import prisma from '@/lib/db';
 import { FileText, TrendingUp, Clock, Wifi } from 'lucide-react';
+import { Channel, PostStatus } from '@prisma/client';
 
-async function getDashboardData() {
+async function getDashboardData(searchParams: { status?: string; channel?: string; accountId?: string }) {
+    const postWhere: any = {};
+    if (searchParams.status) postWhere.status = searchParams.status as PostStatus;
+
+    if (searchParams.channel || searchParams.accountId) {
+        postWhere.publications = {
+            some: {
+                ...(searchParams.channel ? { channel: searchParams.channel as Channel } : {}),
+                ...(searchParams.accountId ? { accountId: searchParams.accountId } : {}),
+            },
+        };
+    }
+
     const [
         totalPosts,
         postsToday,
         lastRun,
         recentRuns,
-        recentPosts,
+        filteredPosts,
         publishedCount,
+        lastPost,
     ] = await Promise.all([
         prisma.post.count(),
         prisma.post.count({
@@ -26,6 +43,7 @@ async function getDashboardData() {
             take: 10,
         }),
         prisma.post.findMany({
+            where: postWhere,
             orderBy: { createdAt: 'desc' },
             take: 20,
             include: {
@@ -33,14 +51,30 @@ async function getDashboardData() {
             },
         }),
         prisma.socialPublication.count({ where: { status: 'SUCCESS' } }),
+        prisma.post.findFirst({
+            where: { status: { in: [PostStatus.PROCESSED, PostStatus.PUBLISHED] } },
+            orderBy: { createdAt: 'desc' },
+            select: { title: true }
+        }),
     ]);
 
-    return { totalPosts, postsToday, lastRun, recentRuns, recentPosts, publishedCount };
+    return { totalPosts, postsToday, lastRun, recentRuns, filteredPosts, publishedCount, latestNews: lastPost?.title };
 }
 
-export default async function DashboardPage() {
-    const { totalPosts, postsToday, lastRun, recentRuns, recentPosts, publishedCount } =
-        await getDashboardData();
+export default async function DashboardPage({
+    searchParams,
+}: {
+    searchParams: Promise<{ status?: string; channel?: string; accountId?: string }>;
+}) {
+    const filters = await searchParams;
+    const { totalPosts, postsToday, lastRun, recentRuns, filteredPosts, publishedCount, latestNews } =
+        await getDashboardData(filters);
+
+    const allAccountsStr = process.env.INSTAGRAM_ACCOUNTS;
+    let accounts: { id: string; name: string }[] = [];
+    try {
+        accounts = allAccountsStr ? JSON.parse(allAccountsStr).map((a: any) => ({ id: a.id, name: a.name })) : [];
+    } catch (e) { }
 
     const lastRunTime = lastRun
         ? new Intl.DateTimeFormat('pt-BR', {
@@ -54,9 +88,13 @@ export default async function DashboardPage() {
             <TopBar
                 title="Dashboard"
                 subtitle="Monitor em tempo real — glint.trade → Instagram · LinkedIn · WhatsApp"
+                news={latestNews}
             />
 
             <div className="flex-1 p-6 space-y-6">
+                {/* Filtros e Controles */}
+                <DashboardControls accounts={accounts} />
+
                 {/* Métricas */}
                 <section id="metrics-grid" className="grid grid-cols-2 lg:grid-cols-4 gap-4">
                     <MetricCard
@@ -99,13 +137,14 @@ export default async function DashboardPage() {
                 <section className="grid grid-cols-1 lg:grid-cols-3 gap-6">
                     <div className="lg:col-span-2">
                         <PostFeed
-                            posts={recentPosts.map(p => ({
+                            posts={filteredPosts.map(p => ({
                                 id: p.id,
                                 title: p.title,
                                 body: p.body,
                                 imageUrl: p.imageUrl,
                                 hashtags: p.hashtags,
                                 sourceName: p.sourceName,
+                                status: p.status,
                                 createdAt: p.createdAt.toISOString(),
                                 publications: p.publications.map(pub => ({
                                     channel: pub.channel,

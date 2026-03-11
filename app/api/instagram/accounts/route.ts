@@ -1,15 +1,15 @@
 import { NextResponse } from 'next/server';
 
-export interface InstagramAccountConfig {
+interface InstagramAccountConfig {
     id: string;
     name: string;
     userId: string;
     accessToken: string;
 }
 
-export type SafeInstagramAccount = Omit<InstagramAccountConfig, 'accessToken'>;
+type SafeInstagramAccount = Omit<InstagramAccountConfig, 'accessToken'>;
 
-export function getConfiguredInstagramAccounts(): InstagramAccountConfig[] {
+function getConfiguredInstagramAccounts(): InstagramAccountConfig[] {
     try {
         if (process.env.INSTAGRAM_ACCOUNTS) {
             return JSON.parse(process.env.INSTAGRAM_ACCOUNTS);

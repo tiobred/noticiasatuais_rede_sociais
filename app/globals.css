@@ -17,7 +17,8 @@
   box-sizing: border-box;
 }
 
-html, body {
+html,
+body {
   background-color: var(--surface-900);
   color: #e2e8f0;
   font-family: 'Inter', system-ui, sans-serif;
@@ -27,22 +28,36 @@ html, body {
 }
 
 /* ─── Scrollbar ─── */
-::-webkit-scrollbar { width: 6px; height: 6px; }
-::-webkit-scrollbar-track { background: var(--surface-800); }
-::-webkit-scrollbar-thumb { background: var(--surface-600); border-radius: 3px; }
-::-webkit-scrollbar-thumb:hover { background: var(--brand-blue); }
+::-webkit-scrollbar {
+  width: 6px;
+  height: 6px;
+}
+
+::-webkit-scrollbar-track {
+  background: var(--surface-800);
+}
+
+::-webkit-scrollbar-thumb {
+  background: var(--surface-600);
+  border-radius: 3px;
+}
+
+::-webkit-scrollbar-thumb:hover {
+  background: var(--brand-blue);
+}
 
 /* ─── Utilities ─── */
 @layer utilities {
   .glass {
     background: rgba(15, 23, 41, 0.6);
     backdrop-filter: blur(12px);
-    border: 1px solid rgba(255,255,255,0.06);
+    border: 1px solid rgba(255, 255, 255, 0.06);
   }
 
   .glass-hover {
     transition: all 0.2s ease;
   }
+
   .glass-hover:hover {
     background: rgba(26, 37, 64, 0.8);
     border-color: rgba(14, 165, 233, 0.2);
@@ -67,30 +82,93 @@ html, body {
     margin-right: 6px;
   }
 
-  .font-mono { font-family: 'DM Mono', monospace; }
+  .font-mono {
+    font-family: 'DM Mono', monospace;
+  }
+
+  .news-ticker-container {
+    overflow: hidden;
+    white-space: nowrap;
+    position: relative;
+  }
+
+  .news-ticker-content {
+    display: inline-block;
+    padding-left: 100%;
+    animation: ticker 25s linear infinite;
+  }
 }
 
 /* ─── Animations ─── */
 @keyframes pulse {
-  0%, 100% { opacity: 1; box-shadow: 0 0 0 0 rgba(16, 185, 129, 0.4); }
-  50% { opacity: 0.7; box-shadow: 0 0 0 6px rgba(16, 185, 129, 0); }
+
+  0%,
+  100% {
+    opacity: 1;
+    box-shadow: 0 0 0 0 rgba(16, 185, 129, 0.4);
+  }
+
+  50% {
+    opacity: 0.7;
+    box-shadow: 0 0 0 6px rgba(16, 185, 129, 0);
+  }
 }
 
 @keyframes fadeIn {
-  from { opacity: 0; transform: translateY(8px); }
-  to { opacity: 1; transform: translateY(0); }
+  from {
+    opacity: 0;
+    transform: translateY(8px);
+  }
+
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
 }
 
 @keyframes slideIn {
-  from { opacity: 0; transform: translateX(-12px); }
-  to { opacity: 1; transform: translateX(0); }
+  from {
+    opacity: 0;
+    transform: translateX(-12px);
+  }
+
+  to {
+    opacity: 1;
+    transform: translateX(0);
+  }
 }
 
-.animate-fade-in { animation: fadeIn 0.4s ease forwards; }
-.animate-slide-in { animation: slideIn 0.3s ease forwards; }
+@keyframes ticker {
+  0% {
+    transform: translateX(100%);
+  }
+
+  100% {
+    transform: translateX(-100%);
+  }
+}
+
+.animate-fade-in {
+  animation: fadeIn 0.4s ease forwards;
+}
+
+.animate-slide-in {
+  animation: slideIn 0.3s ease forwards;
+}
 
 /* ─── Status Badges ─── */
-.badge-success { @apply bg-emerald-500/20 text-emerald-400 px-2 py-0.5 rounded-full text-xs font-medium; }
-.badge-pending { @apply bg-yellow-500/20 text-yellow-400 px-2 py-0.5 rounded-full text-xs font-medium; }
-.badge-failed  { @apply bg-red-500/20 text-red-400 px-2 py-0.5 rounded-full text-xs font-medium; }
-.badge-running { @apply bg-blue-500/20 text-blue-400 px-2 py-0.5 rounded-full text-xs font-medium; }
+.badge-success {
+  @apply bg-emerald-500/20 text-emerald-400 px-2 py-0.5 rounded-full text-xs font-medium;
+}
+
+.badge-pending {
+  @apply bg-yellow-500/20 text-yellow-400 px-2 py-0.5 rounded-full text-xs font-medium;
+}
+
+.badge-failed {
+  @apply bg-red-500/20 text-red-400 px-2 py-0.5 rounded-full text-xs font-medium;
+}
+
+.badge-running {
+  @apply bg-blue-500/20 text-blue-400 px-2 py-0.5 rounded-full text-xs font-medium;
+}

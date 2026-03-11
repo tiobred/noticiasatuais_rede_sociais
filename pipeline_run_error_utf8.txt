@@ -1,0 +1,63 @@
+﻿node.exe : (node:4236) 
+[DEP0180] 
+DeprecationWarning: 
+fs.Stats constructor 
+is deprecated.
+No C:\Program Files\nod
+ejs\npx.ps1:29 
+caractere:3
++   & $NODE_EXE 
+$NPX_CLI_JS $args
++   ~~~~~~~~~~~~~~~~~~~
+~~~~~~~~~~
+    + CategoryInfo     
+         : NotSpecifi  
+  ed: ((node:4236) [   
+ DE... is deprecate    
+d.:String) [], Rem    
+oteException
+    + FullyQualifiedEr 
+   rorId : NativeComm  
+  andError
+ 
+(Use `node 
+--trace-deprecation 
+...` to show where the 
+warning was created)
+TypeError [ERR_UNKNOWN_
+FILE_EXTENSION]: 
+Unknown file extension 
+".ts" for C:\Users\Ande
+rson\noticias_redes_soc
+iais\noticiasatuais_red
+e_sociais\scripts\run_t
+iobred.ts
+    at Object.getFilePr
+otocolModuleFormat [as 
+file:] (node:internal/m
+odules/esm/get_format:2
+19:9)
+    at 
+defaultGetFormat (node:
+internal/modules/esm/ge
+t_format:245:36)
+    at defaultLoad (nod
+e:internal/modules/esm/
+load:120:22)
+    at async nextLoad (
+node:internal/modules/e
+sm/hooks:748:22)
+    at async nextLoad (
+node:internal/modules/e
+sm/hooks:748:22)
+    at async 
+Hooks.load (node:intern
+al/modules/esm/hooks:38
+5:20)
+    at async MessagePor
+t.handleMessage (node:i
+nternal/modules/esm/wor
+ker:199:18) {
+  code: 'ERR_UNKNOWN_FI
+LE_EXTENSION'
+}

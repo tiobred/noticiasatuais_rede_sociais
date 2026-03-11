@@ -7,7 +7,7 @@ const supabase = createClient(
     process.env.SUPABASE_ANON_KEY!
 );
 
-const BUCKET = 'carousel-slides';
+const BUCKET = 'media';
 
 // Dimensões do carrossel Instagram (quadrado 1:1)
 const W = 1080;
@@ -21,54 +21,75 @@ export interface SlideImageResult {
     publicUrl: string;
 }
 
+export interface LayoutConfig {
+    fontSizeTitle?: number;
+    fontSizeBody?: number;
+    fontColor?: string;
+    overlayAlpha?: number;
+}
+
 /**
  * Compõe uma imagem de slide para o carrossel do Instagram.
- * - Se houver imageUrl: baixa a imagem original e aplica overlay de texto
- * - Se não houver: gera um fundo premium com gradiente escuro
- * Faz upload ao Supabase Storage e retorna a URL pública acessível pela Meta.
  */
 export async function composeSlideImage(
     sourceImageUrl: string | undefined | null,
     title: string,
     summary: string,
-    slideIndex: number
+    slideIndex: number,
+    config?: LayoutConfig
 ): Promise<SlideImageResult> {
     console.log(`[composer] Compondo slide ${slideIndex + 1}: "${title.slice(0, 40)}..."`);
 
     const canvas = createCanvas(W, H);
     const ctx = canvas.getContext('2d');
 
-    // Alta qualidade de renderização
     ctx.imageSmoothingEnabled = true;
     ctx.imageSmoothingQuality = 'high';
 
-    // ── 1. Fundo ────────────────────────────────────────────────
+    // ── 1. Fundo com Imagem Borrada e Imagem Fit ────────────────
     if (sourceImageUrl) {
         try {
-            // Tenta buscar a versão maior da imagem antes de renderizar
             const highResUrl = getHighResUrl(sourceImageUrl);
             const img = await loadImage(highResUrl);
-            // Preencher o canvas com a imagem (object-fit: cover) com alta qualidade
-            const scale = Math.max(W / img.width, H / img.height);
-            const sw = img.width * scale;
-            const sh = img.height * scale;
+
+            // 1a. Fundo Borrado (Scale to fill)
+            const fillScale = Math.max(W / img.width, H / img.height);
+            const fw = img.width * fillScale;
+            const fh = img.height * fillScale;
+
+            ctx.filter = 'blur(45px) brightness(0.5)';
+            ctx.drawImage(img, (W - fw) / 2, (H - fh) / 2, fw, fh);
+            ctx.filter = 'none';
+
+            // 1b. Imagem Principal (Scale to fit mantendo aspect ratio)
+            // Deixar espaço na parte inferior para o overlay de texto (aprox. 55% da altura)
+            const fitScale = Math.min((W * 0.9) / img.width, (H * 0.55) / img.height);
+            const sw = img.width * fitScale;
+            const sh = img.height * fitScale;
             const sx = (W - sw) / 2;
-            const sy = (H - sh) / 2;
+            const sy = 40; // Margem superior
+
+            ctx.shadowColor = 'rgba(0,0,0,0.6)';
+            ctx.shadowBlur = 40;
+            ctx.shadowOffsetY = 10;
             ctx.drawImage(img, sx, sy, sw, sh);
+            ctx.shadowColor = 'transparent';
+            ctx.shadowBlur = 0;
+
         } catch {
-            // Fallback para fundo gradiente se a imagem falhar
-            drawGradientBackground(ctx);
+            drawGradientBg(ctx, W, H);
         }
     } else {
-        drawGradientBackground(ctx);
+        drawGradientBg(ctx, W, H);
     }
 
     // ── 2. Overlay gradiente no rodapé ──────────────────────────
-    const overlayHeight = Math.round(H * 0.56);  // um pouco maior para acomodar fontes maiores
+    const overlayHeight = Math.round(H * 0.56);
+    const alpha = config?.overlayAlpha !== undefined ? config.overlayAlpha : 0.85;
     const gradient = ctx.createLinearGradient(0, H - overlayHeight, 0, H);
     gradient.addColorStop(0, 'rgba(0, 0, 0, 0)');
-    gradient.addColorStop(0.35, 'rgba(0, 0, 0, 0.75)');
-    gradient.addColorStop(1, 'rgba(0, 0, 0, 0.96)');
+    gradient.addColorStop(0.35, `rgba(0, 0, 0, ${alpha * 0.8})`);
+    gradient.addColorStop(1, `rgba(0, 0, 0, ${Math.min(1, alpha * 1.2)})`);
     ctx.fillStyle = gradient;
     ctx.fillRect(0, H - overlayHeight, W, overlayHeight);
 
@@ -80,26 +101,29 @@ export async function composeSlideImage(
     const titleY = H - overlayHeight + 44;
     const maxW = W - 120;
 
-    ctx.fillStyle = '#ffffff';
-    ctx.font = 'bold 64px sans-serif';  // 64px
+    // Default 48px mapped to canvas size (approx 5x)
+    const titleSize = (config?.fontSizeTitle || 48) * 2.5;
+    ctx.font = `bold ${titleSize}px sans-serif`;
     ctx.textBaseline = 'top';
+    ctx.fillStyle = config?.fontColor || '#ffffff';
 
     const titleLines = wrapText(ctx, title.toUpperCase(), maxW);
     let currentY = titleY;
-    for (const line of titleLines.slice(0, 3)) {
+    for (const line of titleLines.slice(0, 2)) {
         ctx.fillText(line, 60, currentY);
-        currentY += 66;  // era 56 — mais espaço entre linhas do título
+        currentY += titleSize * 1.1;
     }
 
     // ── 5. Resumo ─────────────────────────────────────────────────
-    ctx.fillStyle = 'rgba(255, 255, 255, 0.85)';
-    ctx.font = '42px sans-serif';  // 42px
-    currentY += 28;  // era 10 — espaço vertical generoso entre título e descrição
+    ctx.fillStyle = config?.fontColor ? `${config.fontColor}E6` : 'rgba(255, 255, 255, 0.9)'; // Slightly transparent
+    const bodySize = (config?.fontSizeBody || 32) * 2.5;
+    ctx.font = `${bodySize}px sans-serif`;
+    currentY += 20;
 
     const summaryLines = wrapText(ctx, summary, maxW);
-    for (const line of summaryLines.slice(0, 4)) {
+    for (const line of summaryLines.slice(0, 3)) {
         ctx.fillText(line, 60, currentY);
-        currentY += 46;  // era 38 — entrelinha maior p/ legibilidade
+        currentY += bodySize * 1.3;
     }
 
     // ── 6. Branding no rodapé ─────────────────────────────────────
@@ -115,7 +139,7 @@ export async function composeSlideImage(
     ctx.textAlign = 'left';
 
     // ── 8. Upload para Supabase Storage ──────────────────────────
-    const buffer = canvas.toBuffer('image/jpeg', 100);  // qualidade MÁXIMA
+    const buffer = canvas.toBuffer('image/jpeg', 100);
     const filename = `slide-${Date.now()}-${slideIndex}.jpg`;
 
     const { error } = await supabase.storage
@@ -125,29 +149,24 @@ export async function composeSlideImage(
             upsert: true,
         });
 
-    if (error) {
-        throw new Error(`[composer] Erro ao fazer upload do slide: ${error.message}`);
-    }
+    if (error) throw new Error(`[composer] Erro ao fazer upload do slide: ${error.message}`);
 
     const { data: urlData } = supabase.storage.from(BUCKET).getPublicUrl(filename);
-
     console.log(`[composer] ✅ Slide ${slideIndex + 1} pronto: ${filename}`);
-
     return { publicUrl: urlData.publicUrl };
 }
 
 /**
  * Compõe uma imagem de Story para o Instagram (formato 9:16 — 1080x1920).
- * Layout vertical com texto bem posicionado na parte inferior da tela.
  */
 export async function composeStoryImage(
     sourceImageUrl: string | undefined | null,
     title: string,
     summary: string,
+    config?: LayoutConfig
 ): Promise<SlideImageResult> {
     console.log(`[composer] Compondo story 2× (2160×3840): "${title.slice(0, 40)}..."`);
 
-    // ── Render em 2× para upscale (2160×3840) ────────────────
     const SCALE = 2;
     const CW = SW * SCALE;  // 2160
     const CH = SH * SCALE;  // 3840
@@ -157,15 +176,32 @@ export async function composeStoryImage(
     ctx.imageSmoothingEnabled = true;
     ctx.imageSmoothingQuality = 'high';
 
-    // ── 1. Fundo ──────────────────────────────────────────────
+    // ── 1. Fundo com Imagem Borrada e Imagem Fit ────────────────
     if (sourceImageUrl) {
         try {
             const highResUrl = getHighResUrl(sourceImageUrl);
             const img = await loadImage(highResUrl);
-            const scale = Math.max(CW / img.width, CH / img.height);
-            const iw = img.width * scale;
-            const ih = img.height * scale;
-            ctx.drawImage(img, (CW - iw) / 2, (CH - ih) / 2, iw, ih);
+
+            // Fundo borrado scale to fill
+            const fillScale = Math.max(CW / img.width, CH / img.height);
+            const fw = img.width * fillScale;
+            const fh = img.height * fillScale;
+
+            ctx.filter = 'blur(60px) brightness(0.4)';
+            ctx.drawImage(img, (CW - fw) / 2, (CH - fh) / 2, fw, fh);
+            ctx.filter = 'none';
+
+            // Imagem Principal Scale to Fit na parte superior
+            const fitScale = Math.min((CW * 0.9) / img.width, (CH * 0.45) / img.height);
+            const iw = img.width * fitScale;
+            const ih = img.height * fitScale;
+
+            ctx.shadowColor = 'rgba(0,0,0,0.6)';
+            ctx.shadowBlur = 40 * SCALE;
+            ctx.shadowOffsetY = 10 * SCALE;
+            ctx.drawImage(img, (CW - iw) / 2, 100 * SCALE, iw, ih);
+            ctx.shadowColor = 'transparent';
+            ctx.shadowBlur = 0;
         } catch {
             drawGradientBg(ctx, CW, CH);
         }
@@ -173,19 +209,20 @@ export async function composeStoryImage(
         drawGradientBg(ctx, CW, CH);
     }
 
-    // ── 2. Overlay escuro nos 65% inferiores ─────────────────
-    //    Mais espaço para texto com degradê fundo
-    const overlayH = Math.round(CH * 0.65);
+    // ── 2. Overlay escuro na parte do texto ─────────────────
+    const overlayH = Math.round(CH * 0.60);
     const overlayY = CH - overlayH;
+
+    const alpha = config?.overlayAlpha !== undefined ? config.overlayAlpha : 0.65;
     const grad = ctx.createLinearGradient(0, overlayY, 0, CH);
     grad.addColorStop(0, 'rgba(0,0,0,0)');
-    grad.addColorStop(0.15, 'rgba(0,0,0,0.60)');
-    grad.addColorStop(0.35, 'rgba(0,0,0,0.85)');
-    grad.addColorStop(1, 'rgba(0,0,0,0.97)');
+    grad.addColorStop(0.15, `rgba(0,0,0,${alpha * 0.7})`);
+    grad.addColorStop(0.35, `rgba(0,0,0,${alpha * 1.1})`);
+    grad.addColorStop(1, `rgba(0,0,0,${Math.min(1, alpha * 1.3)})`);
     ctx.fillStyle = grad;
     ctx.fillRect(0, overlayY, CW, overlayH);
 
-    const padX = 90 * SCALE;  // padding lateral
+    const padX = 90 * SCALE;
     const maxTextW = CW - padX * 2;
 
     // ── 3. Linha de acento verde ──────────────────────────────
@@ -193,41 +230,41 @@ export async function composeStoryImage(
     ctx.fillStyle = '#10b981';
     ctx.fillRect(padX, lineY, 130 * SCALE, 8 * SCALE);
 
-    // ── 4. Título (Máx 3 linhas, 75px base) ──────────────────
-    ctx.fillStyle = '#ffffff';
-    ctx.font = `bold ${75 * SCALE}px sans-serif`;
+    // ── 4. Título ──────────────────
+    ctx.fillStyle = config?.fontColor || '#ffffff';
+    const titleSize = (config?.fontSizeTitle || 60) * 2;
+    ctx.font = `bold ${titleSize * SCALE}px sans-serif`;
     ctx.textBaseline = 'top';
 
     const titleLines = wrapText(ctx, title.toUpperCase(), maxTextW);
     let curY = lineY + 32 * SCALE;
     for (const line of titleLines.slice(0, 3)) {
         ctx.fillText(line, padX, curY);
-        curY += 86 * SCALE; // line height do título
+        curY += titleSize * SCALE * 1.1;
     }
 
-    // ── 5. Resumo (Máx 6 linhas, 46px base) ──────────────────
-    curY += 16 * SCALE; // respiro entre titulo e texto
-    ctx.fillStyle = 'rgba(255,255,255,0.90)';
-    ctx.font = `${46 * SCALE}px sans-serif`;
+    // ── 5. Resumo ──────────────────
+    curY += 40 * SCALE;
+    ctx.fillStyle = config?.fontColor ? `${config.fontColor}E6` : 'rgba(255,255,255,0.95)';
+    const bodySize = (config?.fontSizeBody || 40) * 2;
+    ctx.font = `${bodySize * SCALE}px sans-serif`;
 
     const summaryLines = wrapText(ctx, summary, maxTextW);
     for (const line of summaryLines.slice(0, 6)) {
         ctx.fillText(line, padX, curY);
-        curY += 60 * SCALE; // line height do resumo
+        curY += bodySize * SCALE * 1.35;
     }
 
     // ── 6. Branding no rodapé ─────────────────────────────────
     const brandY = CH - 110 * SCALE;
-    // Divisor sutil
     ctx.fillStyle = 'rgba(16,185,129,0.3)';
     ctx.fillRect(padX, brandY - 24 * SCALE, maxTextW, 2 * SCALE);
 
-    // Nome marca
     ctx.fillStyle = '#10b981';
     ctx.font = `bold ${40 * SCALE}px sans-serif`;
     ctx.fillText('📊 Notícia da Hora', padX, brandY);
 
-    // ── 7. Upload ao Supabase (salvando qualidade max) ───────
+    // ── 7. Upload ao Supabase ───────
     const buffer = canvas.toBuffer('image/jpeg', 100);
     const filename = `story-${Date.now()}.jpg`;
 
@@ -240,6 +277,150 @@ export async function composeStoryImage(
     const { data: urlData } = supabase.storage.from(BUCKET).getPublicUrl(filename);
     console.log(`[composer] ✅ Story pronto: ${filename}`);
     return { publicUrl: urlData.publicUrl };
+}
+
+/**
+ * Compõe uma imagem de Story para posts originais do Instagram (formato 9:16).
+ * Coloca a imagem no centro com um fundo escuro fosco (mantém aspect ratio original, sem texto da notícia).
+ */
+export async function composeOriginalStoryImage(
+    sourceImageUrl: string
+): Promise<SlideImageResult> {
+    console.log(`[composer] Compondo story original (9:16 fallback) para: ${sourceImageUrl.slice(0, 50)}...`);
+
+    const SCALE = 2;
+    const CW = SW * SCALE;  // 2160
+    const CH = SH * SCALE;  // 3840
+
+    const canvas = createCanvas(CW, CH);
+    const ctx = canvas.getContext('2d');
+    ctx.imageSmoothingEnabled = true;
+    ctx.imageSmoothingQuality = 'high';
+
+    // 1. Fundo Gradiente Fosco
+    drawGradientBg(ctx, CW, CH);
+
+    // 2. Desenhar Imagem Original no Centro
+    try {
+        const highResUrl = getHighResUrl(sourceImageUrl);
+        const img = await loadImage(highResUrl);
+
+        // Calcular escala para caber na tela sem perder proporções
+        const scale = Math.min((CW * 0.95) / img.width, (CH * 0.85) / img.height); // margem segura
+        const iw = img.width * scale;
+        const ih = img.height * scale;
+
+        ctx.shadowColor = 'rgba(0,0,0,0.5)';
+        ctx.shadowBlur = 40;
+        ctx.shadowOffsetX = 0;
+        ctx.shadowOffsetY = 20;
+
+        ctx.drawImage(img, (CW - iw) / 2, (CH - ih) / 2, iw, ih);
+
+        // Resetar sombra
+        ctx.shadowColor = 'transparent';
+        ctx.shadowBlur = 0;
+    } catch {
+        console.warn(`[composer] Falha ao carregar imagem original para composeOriginalStoryImage`);
+    }
+
+    // 3. Upload
+    const buffer = canvas.toBuffer('image/jpeg', 95);
+    const filename = `story-orig-${Date.now()}-${Math.floor(Math.random() * 1000)}.jpg`;
+
+    const { error } = await supabase.storage
+        .from(BUCKET)
+        .upload(filename, buffer, { contentType: 'image/jpeg', upsert: true });
+
+    if (error) throw new Error(`[composer] Erro ao fazer upload do story original: ${error.message}`);
+
+    const { data: urlData } = supabase.storage.from(BUCKET).getPublicUrl(filename);
+    console.log(`[composer] ✅ Story original pronto: ${filename}`);
+    return { publicUrl: urlData.publicUrl };
+}
+
+/**
+ * Re-hospeda uma imagem externa no Supabase Storage sem qualquer composição.
+ * Útil para evitar erros de "circular reference" ou URLs temporárias do Instagram API.
+ */
+export async function rehostImage(url: string, prefix = 'original'): Promise<string> {
+    console.log(`[composer] Re-hospedando imagem: ${url.slice(0, 50)}...`);
+    if (prefix === 'original' || prefix === 'ig-original') {
+        console.log(`[composer] Usando URL original de imagem (rehosting desativado p/ republicações): ${url.slice(0, 50)}...`);
+        return url;
+    }
+    try {
+        const highRes = getHighResUrl(url);
+        const img = await loadImage(highRes);
+
+        const canvas = createCanvas(img.width, img.height);
+        const ctx = canvas.getContext('2d');
+        ctx.drawImage(img, 0, 0);
+
+        const buffer = canvas.toBuffer('image/jpeg', 95);
+        const filename = `${prefix}-${Date.now()}-${Math.floor(Math.random() * 1000)}.jpg`;
+
+        const { error } = await supabase.storage
+            .from(BUCKET)
+            .upload(filename, buffer, {
+                contentType: 'image/jpeg',
+                upsert: true,
+            });
+
+        if (error) throw error;
+
+        const { data: urlData } = supabase.storage.from(BUCKET).getPublicUrl(filename);
+        return urlData.publicUrl;
+    } catch (err) {
+        console.error(`[composer] Erro ao re-hospedar imagem:`, err);
+        return url; // fallback para URL original
+    }
+}
+
+/**
+ * Re-hospeda um vídeo externo no Supabase Storage.
+ * Crucial para Reels, pois URLs do Instagram CDN expiram rápido ou falham no processamento.
+ * @returns Um objeto contendo a URL pública e o nome do arquivo para deleção posterior.
+ */
+export async function rehostVideo(url: string, prefix = 'video'): Promise<{ publicUrl: string; filename: string }> {
+    console.log(`[composer] Re-hospedando vídeo: ${url.slice(0, 50)}...`);
+    try {
+        const axios = require('axios');
+        const response = await axios.get(url, { responseType: 'arraybuffer' });
+        const buffer = Buffer.from(response.data);
+
+        const filename = `${prefix}-${Date.now()}-${Math.floor(Math.random() * 1000)}.mp4`;
+
+        const { error } = await supabase.storage
+            .from(BUCKET)
+            .upload(filename, buffer, {
+                contentType: 'video/mp4',
+                upsert: true,
+            });
+
+        if (error) {
+            throw error;
+        }
+
+        const { data: urlData } = supabase.storage.from(BUCKET).getPublicUrl(filename);
+        return { publicUrl: urlData.publicUrl, filename };
+    } catch (err) {
+        console.error(`[composer] Erro ao re-hospedar vídeo:`, err);
+        return { publicUrl: url, filename: '' }; // fallback
+    }
+}
+
+/**
+ * Remove um arquivo do bucket do Supabase.
+ */
+export async function deleteHostedFile(filename: string): Promise<void> {
+    if (!filename) return;
+    try {
+        console.log(`[composer] Removendo arquivo temporário: ${filename}`);
+        await supabase.storage.from(BUCKET).remove([filename]);
+    } catch (err) {
+        console.error(`[composer] Falha ao remover arquivo do storage:`, err);
+    }
 }
 
 // ── Helpers ────────────────────────────────────────────────────

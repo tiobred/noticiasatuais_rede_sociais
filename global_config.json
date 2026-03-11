@@ -1,0 +1,71 @@
+﻿--- SystemConfig GLOBAL ---
+[
+  {
+    "key": "SCRAPER_LIMIT_PER_SOURCE",
+    "value": 1,
+    "accountId": "global",
+    "updatedAt": "2026-03-06T23:53:19.413Z"
+  },
+  {
+    "key": "WHATSAPP_BATCH_DELAY",
+    "value": 60000,
+    "accountId": "global",
+    "updatedAt": "2026-03-06T23:53:19.615Z"
+  },
+  {
+    "key": "POSTING_TIMES",
+    "value": [
+      "08:00",
+      "13:00",
+      "20:00"
+    ],
+    "accountId": "global",
+    "updatedAt": "2026-03-06T23:53:19.730Z"
+  },
+  {
+    "key": "CHANNEL_INSTAGRAM_FEED",
+    "value": false,
+    "accountId": "global",
+    "updatedAt": "2026-03-06T23:53:19.838Z"
+  },
+  {
+    "key": "CHANNEL_INSTAGRAM_STORY",
+    "value": false,
+    "accountId": "global",
+    "updatedAt": "2026-03-06T23:53:19.949Z"
+  },
+  {
+    "key": "CHANNEL_LINKEDIN",
+    "value": false,
+    "accountId": "global",
+    "updatedAt": "2026-03-06T23:53:20.064Z"
+  },
+  {
+    "key": "CHANNEL_WHATSAPP",
+    "value": false,
+    "accountId": "global",
+    "updatedAt": "2026-03-06T23:53:20.186Z"
+  },
+  {
+    "key": "JOB_SCHEDULER",
+    "value": true,
+    "accountId": "global",
+    "updatedAt": "2026-03-06T23:53:20.302Z"
+  },
+  {
+    "key": "JOB_CLEANUP",
+    "value": true,
+    "accountId": "global",
+    "updatedAt": "2026-03-06T23:53:20.416Z"
+  },
+  {
+    "key": "ACTIVE_INSTAGRAM_ACCOUNTS",
+    "value": [
+      "principal",
+      "promo",
+      "Tiobred"
+    ],
+    "accountId": "global",
+    "updatedAt": "2026-03-06T23:53:20.523Z"
+  }
+]

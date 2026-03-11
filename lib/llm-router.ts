@@ -78,6 +78,20 @@ export async function chat(messages: ChatMessage[], opts?: {
     maxTokens?: number;
     temperature?: number;
 }): Promise<string> {
+    // Modo de teste: economiza tokens e dinheiro
+    if (process.env.IS_TEST_RUN === 'true') {
+        console.log('[llm-router] 🧪 MODO TESTE: Retornando mock para economizar tokens.');
+        return JSON.stringify({
+            title: "Notícia de Teste",
+            summary: "Resumo simulado para economia de tokens.",
+            body: "Conteúdo simulado.",
+            hashtags: ["teste", "economia"],
+            items: [{ title: "Item Mock", summary: "Impacto mock.", hashtags: ["mock"] }],
+            globalCaption: "Legenda mock.",
+            whatsappConsolidated: "WhatsApp mock."
+        });
+    }
+
     const primary = pickProvider();
     const secondary = primary === 'openrouter' ? 'gemini' : 'openrouter';
 

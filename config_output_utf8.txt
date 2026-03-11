@@ -1,0 +1,29 @@
+﻿--- Configs for Tiobred ---
+imageStyle: "tech"
+CHANNEL_INSTAGRAM_FEED: true
+CHANNEL_INSTAGRAM_STORY: true
+IG_MONITOR_TARGETS: [{"minLikes":10,"username":"jornadatop","minComments":0,"postOriginal":true}]
+SCRAPER_LIMIT_PER_SOURCE: 4
+WHATSAPP_BATCH_DELAY: 60000
+POSTING_TIMES: ["08:00","13:00","21:00"]
+CHANNEL_LINKEDIN: false
+CHANNEL_WHATSAPP: false
+JOB_SCHEDULER: true
+JOB_CLEANUP: true
+ACTIVE_INSTAGRAM_ACCOUNTS: ["Tiobred"]
+schedulerEnabled: true
+layoutType: "compact"
+DATA_SOURCES: [{"url":"https://search.cnbc.com/rs/search/combinedcms/view.xml?profile=12000000&id=10000664","name":"CNBC Finance"},{"url":"URL: http://feeds.marketwatch.com/marketwatch/topstories/","name":"MarketWatch"},{"url":"https://finance.yahoo.com/news/rssindex","name":"Yahoo Finance"}]
+THEMES: "Focar em not├¡cias sobre Intelig├¬ncia Artificial, avan├ºos tecnol├│gicos e mercados financeiros/investimentos. Ao traduzir as not├¡cias, mantenha um tom entusiasta, moderno e voltado para neg├│cios. Explique de forma pr├ítica como a not├¡cia impacta o investidor e o futuro da tecnologia. Evite jarg├╡es excessivos se n├úo os explicar."
+
+--- Global Configs ---
+SCRAPER_LIMIT_PER_SOURCE: 1
+WHATSAPP_BATCH_DELAY: 60000
+POSTING_TIMES: ["08:00","13:00","20:00"]
+CHANNEL_INSTAGRAM_FEED: false
+CHANNEL_INSTAGRAM_STORY: false
+CHANNEL_LINKEDIN: false
+CHANNEL_WHATSAPP: false
+JOB_SCHEDULER: true
+JOB_CLEANUP: true
+ACTIVE_INSTAGRAM_ACCOUNTS: ["principal","promo","Tiobred"]

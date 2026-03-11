@@ -20,6 +20,8 @@ model Post {
   tags         String[]  // categorias do glint.trade
   rawContent   String?   @db.Text // conteúdo original em inglês
   status       PostStatus @default(PENDING)
+  metadata     Json?      // dados extras
+  accountId    String?    // ID da conta associada
   publications SocialPublication[]
   createdAt    DateTime  @default(now())
   processedAt  DateTime?
@@ -60,9 +62,12 @@ model AgentRun {
 }
 
 model SystemConfig {
-  key       String   @id
+  key       String
   value     Json
+  accountId String   @default("global")
   updatedAt DateTime @updatedAt
+
+  @@id([key, accountId])
 }
 
 model AuditLog {
@@ -86,6 +91,7 @@ enum PostStatus {
 enum Channel {
   INSTAGRAM_FEED
   INSTAGRAM_STORY
+  INSTAGRAM_REELS
   LINKEDIN
   WHATSAPP
 }

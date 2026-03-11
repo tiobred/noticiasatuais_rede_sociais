@@ -1,6 +1,10 @@
+'use client';
+
+import { useState } from 'react';
 import Image from 'next/image';
-import { Instagram, Linkedin, MessageCircle, CheckCircle, XCircle, Clock } from 'lucide-react';
+import { Instagram, Linkedin, MessageCircle, CheckCircle, XCircle, Clock, Trash2, CheckSquare, Square } from 'lucide-react';
 import { formatDateBR } from '@/lib/utils';
+import { useRouter } from 'next/navigation';
 
 interface PostDisplay {
     id: string;
@@ -10,6 +14,7 @@ interface PostDisplay {
     hashtags: string[];
     sourceName: string;
     createdAt: string;
+    status: string;
     publications: {
         channel: string;
         status: string;
@@ -29,11 +34,78 @@ interface PostFeedProps {
 }
 
 export function PostFeed({ posts }: PostFeedProps) {
+    const [selectedIds, setSelectedIds] = useState<string[]>([]);
+    const [isDeleting, setIsDeleting] = useState(false);
+    const router = useRouter();
+
+    const toggleSelect = (id: string) => {
+        setSelectedIds(prev =>
+            prev.includes(id) ? prev.filter(i => i !== id) : [...prev, id]
+        );
+    };
+
+    const toggleSelectAll = () => {
+        if (selectedIds.length === posts.length) {
+            setSelectedIds([]);
+        } else {
+            setSelectedIds(posts.map(p => p.id));
+        }
+    };
+
+    const handleBatchDelete = async () => {
+        if (selectedIds.length === 0 || !confirm(`Deseja excluir ${selectedIds.length} posts?`)) return;
+
+        setIsDeleting(true);
+        try {
+            const res = await fetch('/api/posts/batch', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ ids: selectedIds }),
+            });
+
+            if (res.ok) {
+                setSelectedIds([]);
+                router.refresh();
+            } else {
+                alert('Erro ao excluir posts');
+            }
+        } catch (error) {
+            console.error(error);
+            alert('Erro na requisição');
+        } finally {
+            setIsDeleting(false);
+        }
+    };
+
     return (
         <div id="post-feed" className="glass rounded-xl border border-white/5 overflow-hidden">
             <div className="flex items-center justify-between px-5 py-4 border-b border-white/5">
-                <h3 className="text-sm font-semibold text-white">Posts Publicados</h3>
-                <span className="text-xs text-white/30 font-mono">{posts.length} posts</span>
+                <div className="flex items-center gap-4">
+                    <h3 className="text-sm font-semibold text-white">Posts Publicados</h3>
+                    {posts.length > 0 && (
+                        <button
+                            onClick={toggleSelectAll}
+                            className="text-xs text-white/30 hover:text-white/60 transition-colors flex items-center gap-1.5"
+                        >
+                            {selectedIds.length === posts.length ? <CheckSquare className="w-3.5 h-3.5" /> : <Square className="w-3.5 h-3.5" />}
+                            Selecionar Todos
+                        </button>
+                    )}
+                </div>
+
+                <div className="flex items-center gap-3">
+                    {selectedIds.length > 0 && (
+                        <button
+                            onClick={handleBatchDelete}
+                            disabled={isDeleting}
+                            className="flex items-center gap-1.5 px-2.5 py-1 rounded bg-red-500/10 text-red-400 hover:bg-red-500/20 text-xs font-medium transition-all"
+                        >
+                            <Trash2 className="w-3.5 h-3.5" />
+                            {isDeleting ? 'Excluindo...' : `Excluir (${selectedIds.length})`}
+                        </button>
+                    )}
+                    <span className="text-xs text-white/30 font-mono">{posts.length} posts</span>
+                </div>
             </div>
 
             <div className="divide-y divide-white/5 max-h-[600px] overflow-y-auto">
@@ -45,7 +117,22 @@ export function PostFeed({ posts }: PostFeedProps) {
                     </div>
                 ) : (
                     posts.map((post) => (
-                        <article key={post.id} className="flex gap-4 p-4 hover:bg-white/2 transition-colors animate-fade-in">
+                        <article
+                            key={post.id}
+                            className={`flex gap-4 p-4 hover:bg-white/2 transition-colors animate-fade-in group ${selectedIds.includes(post.id) ? 'bg-white/5' : ''
+                                }`}
+                        >
+                            {/* Selection Checkbox */}
+                            <div className="flex-shrink-0 flex items-start pt-1">
+                                <button
+                                    onClick={() => toggleSelect(post.id)}
+                                    className={`w-4 h-4 rounded border transition-colors flex items-center justify-center
+                    ${selectedIds.includes(post.id) ? 'bg-brand-500 border-brand-500' : 'border-white/10 group-hover:border-white/20'}`}
+                                >
+                                    {selectedIds.includes(post.id) && <CheckSquare className="w-3 h-3 text-white" />}
+                                </button>
+                            </div>
+
                             {/* Thumbnail */}
                             {post.imageUrl && (
                                 <div className="flex-shrink-0 w-16 h-16 rounded-lg overflow-hidden bg-surface-700">
@@ -67,6 +154,11 @@ export function PostFeed({ posts }: PostFeedProps) {
                                     <span className="text-xs text-white/20">•</span>
                                     <span className="text-xs text-white/30 font-mono">
                                         {formatDateBR(new Date(post.createdAt))}
+                                    </span>
+                                    <span className={`text-[10px] px-1.5 py-0.5 rounded-full ml-auto uppercase font-bold tracking-wider
+                    ${post.status === 'PUBLISHED' ? 'bg-emerald-500/10 text-emerald-400' :
+                                            post.status === 'PROCESSED' ? 'bg-blue-500/10 text-blue-400' : 'bg-white/5 text-white/30'}`}>
+                                        {post.status}
                                     </span>
                                 </div>
 
