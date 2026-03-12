@@ -232,27 +232,27 @@ export async function composeStoryImage(
 
     // ── 4. Título ──────────────────
     ctx.fillStyle = config?.fontColor || '#ffffff';
-    const titleSize = (config?.fontSizeTitle || 60) * 2;
-    ctx.font = `bold ${titleSize * SCALE}px sans-serif`;
+    const titleSize = (config?.fontSizeTitle || 60) * SCALE;
+    ctx.font = `bold ${titleSize}px sans-serif`;
     ctx.textBaseline = 'top';
 
     const titleLines = wrapText(ctx, title.toUpperCase(), maxTextW);
     let curY = lineY + 32 * SCALE;
     for (const line of titleLines.slice(0, 3)) {
         ctx.fillText(line, padX, curY);
-        curY += titleSize * SCALE * 1.1;
+        curY += titleSize * 1.1;
     }
 
     // ── 5. Resumo ──────────────────
     curY += 40 * SCALE;
     ctx.fillStyle = config?.fontColor ? `${config.fontColor}E6` : 'rgba(255,255,255,0.95)';
-    const bodySize = (config?.fontSizeBody || 40) * 2;
-    ctx.font = `${bodySize * SCALE}px sans-serif`;
+    const bodySize = (config?.fontSizeBody || 40) * SCALE;
+    ctx.font = `${bodySize}px sans-serif`;
 
     const summaryLines = wrapText(ctx, summary, maxTextW);
     for (const line of summaryLines.slice(0, 6)) {
         ctx.fillText(line, padX, curY);
-        curY += bodySize * SCALE * 1.35;
+        curY += bodySize * 1.35;
     }
 
     // ── 6. Branding no rodapé ─────────────────────────────────

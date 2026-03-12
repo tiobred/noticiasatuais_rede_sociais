@@ -1,6 +1,7 @@
 import { NextResponse } from 'next/server';
 import prisma from '@/lib/db';
 import { getMergedConfigs } from '@/lib/db/config-helper';
+import { rateLimit } from '@/lib/rate-limit';
 
 export async function GET(req: Request) {
     try {
@@ -33,17 +34,44 @@ export async function GET(req: Request) {
             'CHANNEL_INSTAGRAM_STORY',
             'CHANNEL_INSTAGRAM_REELS',
             'CHANNEL_WHATSAPP',
+            'CHANNEL_YOUTUBE_SHORTS',
             'postingTimes',
+            'POSTING_TIMES',
             'imageStyle',
             'primaryColor',
             'feed_layout',
+            'FEED_LAYOUT',
             'story_layout',
+            'STORY_LAYOUT',
             'reels_layout',
+            'REELS_LAYOUT',
             'schedulerEnabled'
         ];
 
         const mergedConfigs = await getMergedConfigs(accountId, relevantKeys);
-        return NextResponse.json(mergedConfigs);
+        
+        // Valores padrão para garantir que a UI tenha o que exibir (especialmente booleans)
+        const defaults: Record<string, any> = {
+            isActive: true,
+            CHANNEL_INSTAGRAM_FEED: false,
+            CHANNEL_INSTAGRAM_STORY: false,
+            CHANNEL_INSTAGRAM_REELS: false,
+            CHANNEL_WHATSAPP: false,
+            CHANNEL_YOUTUBE_SHORTS: false,
+            schedulerEnabled: true,
+            SCRAPER_LIMIT_PER_SOURCE: 4,
+            imageStyle: 'modern',
+            primaryColor: '#1a1a1a'
+        };
+
+        // Normalização básica para a UI (garantir que layouts estejam disponíveis em minúsculas)
+        const normalized = { ...defaults, ...mergedConfigs };
+        if (mergedConfigs.STORY_LAYOUT && !mergedConfigs.story_layout) normalized.story_layout = mergedConfigs.STORY_LAYOUT;
+        if (mergedConfigs.FEED_LAYOUT && !mergedConfigs.feed_layout) normalized.feed_layout = mergedConfigs.FEED_LAYOUT;
+        if (mergedConfigs.REELS_LAYOUT && !mergedConfigs.reels_layout) normalized.reels_layout = mergedConfigs.REELS_LAYOUT;
+        if (mergedConfigs.POSTING_TIMES && !mergedConfigs.postingTimes) normalized.postingTimes = mergedConfigs.POSTING_TIMES;
+
+        return NextResponse.json(normalized);
     } catch (error: any) {
         return NextResponse.json({ error: error.message }, { status: 500 });
     }
@@ -51,11 +79,21 @@ export async function GET(req: Request) {
 
 export async function POST(req: Request) {
     try {
+        const ip = req.headers.get('x-forwarded-for') || '127.0.0.1';
+        
+        // Limite de 20 alterações por minuto por IP
+        if (!rateLimit(ip, 20, 60000)) {
+            return NextResponse.json({ 
+                error: 'Muitas alterações em pouco tempo. Aguarde um momento.' 
+            }, { status: 429 });
+        }
+
         const body = await req.json();
         const { accountId: rawAccountId = 'global', ...rest } = body;
         const accountId = rawAccountId.toLowerCase();
 
-        console.log(`[API] Requisição de salvamento recebida para [${accountId}]:`, Object.keys(rest));
+        console.log(`[API|Settings] Salvando para [${accountId}]. Chaves:`, Object.keys(rest));
+        console.log(`[API|Settings] Payload:`, JSON.stringify(rest));
 
         const results = [];
         const entriesToSave: [string, any][] = [];

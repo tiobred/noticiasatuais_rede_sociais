@@ -69,7 +69,8 @@ export class InstagramScraperAgent {
                                 postOriginal: target.postOriginal === true,
                                 metadata: {
                                     mediaType: mediaType,
-                                    originalUsername: username
+                                    originalUsername: username,
+                                    targetChannels: target.channels // novo campo para respeitar canais específicos
                                 }
                             });
                         }

@@ -2,9 +2,20 @@ import { NextResponse } from 'next/server';
 import { runPipeline } from '@/lib/agents/orchestrator';
 import prisma from '@/lib/db';
 import { getMergedConfigs } from '@/lib/db/config-helper';
+import { rateLimit } from '@/lib/rate-limit';
 
-export async function POST() {
+export async function POST(req: Request) {
     try {
+        const ip = req.headers.get('x-forwarded-for') || '127.0.0.1';
+        
+        // Limite de 5 execuções manuais a cada 10 minutos por IP
+        if (!rateLimit(ip, 5, 600000)) {
+            return NextResponse.json({ 
+                success: false, 
+                error: 'Muitas requisições. Tente novamente em alguns minutos.' 
+            }, { status: 429 });
+        }
+
         console.log('[API] Pipeline iniciado manualmente via dashboard (todas as contas ativas)');
 
         const allAccountsStr = process.env.INSTAGRAM_ACCOUNTS || '[]';
@@ -22,7 +33,8 @@ export async function POST() {
                 'CHANNEL_INSTAGRAM_FEED',
                 'CHANNEL_INSTAGRAM_STORY',
                 'CHANNEL_INSTAGRAM_REELS',
-                'CHANNEL_WHATSAPP'
+                'CHANNEL_WHATSAPP',
+                'CHANNEL_YOUTUBE_SHORTS'
             ]);
 
             if (configMap['isActive'] !== false) {
@@ -30,8 +42,9 @@ export async function POST() {
                 const isStoryEnabled = configMap['CHANNEL_INSTAGRAM_STORY'] === true;
                 const isReelsEnabled = configMap['CHANNEL_INSTAGRAM_REELS'] === true;
                 const isWhatsappEnabled = configMap['CHANNEL_WHATSAPP'] === true;
+                const isYoutubeEnabled = configMap['CHANNEL_YOUTUBE_SHORTS'] === true;
 
-                if (isFeedEnabled || isStoryEnabled || isReelsEnabled || isWhatsappEnabled) {
+                if (isFeedEnabled || isStoryEnabled || isReelsEnabled || isWhatsappEnabled || isYoutubeEnabled) {
                     accountsToRun.push(account.id);
                 } else {
                     console.log(`[API] Pulando ${account.id} (Nenhum canal ativo)`);

@@ -94,6 +94,7 @@ enum Channel {
   INSTAGRAM_REELS
   LINKEDIN
   WHATSAPP
+  YOUTUBE_SHORTS
 }
 
 enum PubStatus {

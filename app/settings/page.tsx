@@ -166,34 +166,12 @@ export default function SettingsPage() {
             setSaving(true);
             console.log(`[Settings] Salvando para ${currentAccountId}...`);
 
-            // Só salva as diferenças para reduzir payload, mas garante que pegamos tudo que mudou
-            const changesToSave: AccountConfig = {};
-
-            // Unificamos as chaves de settings e originalSettings para não perder nada
-            const allKeys = new Set([...Object.keys(settings), ...Object.keys(originalSettings)]);
-
-            for (const key of allKeys) {
-                const newVal = settings[key];
-                const oldVal = originalSettings[key];
-
-                if (JSON.stringify(newVal) !== JSON.stringify(oldVal)) {
-                    console.log(`[Settings] Detectada mudança em ${key}:`, oldVal, '->', newVal);
-                    changesToSave[key] = newVal;
-                }
-            }
-
-            if (Object.keys(changesToSave).length === 0) {
-                showMessage('Nenhuma alteração detectada para salvar.', 'success');
-                setSaving(false);
-                return;
-            }
-
-            console.log('[Settings] Enviando payload:', changesToSave);
+            console.log('[Settings] Enviando payload total:', settings);
 
             const res = await fetch('/api/settings', {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ accountId: currentAccountId, ...changesToSave }),
+                body: JSON.stringify({ accountId: currentAccountId, ...settings }),
             });
 
             const result = await res.json();
@@ -432,6 +410,16 @@ export default function SettingsPage() {
                                                 <Switch
                                                     checked={settings.CHANNEL_INSTAGRAM_REELS === true}
                                                     onCheckedChange={(checked: boolean) => updateSetting('CHANNEL_INSTAGRAM_REELS', checked)}
+                                                />
+                                            </div>
+                                            <div className="flex items-center justify-between">
+                                                <div className="space-y-0.5">
+                                                    <Label className="mb-0">YouTube Shorts</Label>
+                                                    <p className="text-xs text-gray-500">Postar vídeos splitscreen no YouTube Shorts</p>
+                                                </div>
+                                                <Switch
+                                                    checked={settings.CHANNEL_YOUTUBE_SHORTS === true}
+                                                    onCheckedChange={(checked: boolean) => updateSetting('CHANNEL_YOUTUBE_SHORTS', checked)}
                                                 />
                                             </div>
                                         </CardContent>
@@ -696,7 +684,13 @@ export default function SettingsPage() {
                                                     type="button"
                                                     onClick={() => {
                                                         const targets = Array.isArray(settings.IG_MONITOR_TARGETS) ? [...settings.IG_MONITOR_TARGETS] : [];
-                                                        targets.push({ username: '', minLikes: 5000, minComments: 100, postOriginal: false });
+                                                        targets.push({ 
+                                                            username: '', 
+                                                            minLikes: 5000, 
+                                                            minComments: 100, 
+                                                            postOriginal: false,
+                                                            channels: { feed: true, story: true, reels: true, shorts: true, whatsapp: true }
+                                                        });
                                                         updateSetting('IG_MONITOR_TARGETS', targets);
                                                     }}
                                                     className="text-sm bg-purple-100 text-purple-700 hover:bg-purple-200 px-3 py-1 rounded-md font-medium"
@@ -713,69 +707,105 @@ export default function SettingsPage() {
 
                                             <div className="space-y-3">
                                                 {(Array.isArray(settings.IG_MONITOR_TARGETS) ? settings.IG_MONITOR_TARGETS : []).map((target: any, idx: number) => (
-                                                    <div key={idx} className="flex gap-3 items-start p-3 border rounded-lg dark:border-gray-700 bg-gray-50 dark:bg-gray-800/30">
-                                                        <div className="flex-[2] space-y-2">
-                                                            <Label className="text-xs">Username (Sem o @)</Label>
-                                                            <Input
-                                                                placeholder="Ex: forbes"
-                                                                value={target.username || ''}
-                                                                onChange={(e: React.ChangeEvent<HTMLInputElement>) => {
-                                                                    const newTargets = [...settings.IG_MONITOR_TARGETS];
-                                                                    newTargets[idx] = { ...newTargets[idx], username: e.target.value.replace('@', '') };
-                                                                    updateSetting('IG_MONITOR_TARGETS', newTargets);
-                                                                }}
-                                                            />
-                                                        </div>
-                                                        <div className="flex-1 space-y-2">
-                                                            <Label className="text-xs">Mínimo Curtidas</Label>
-                                                            <Input
-                                                                type="number"
-                                                                placeholder="5000"
-                                                                value={target.minLikes || 0}
-                                                                onChange={(e: React.ChangeEvent<HTMLInputElement>) => {
-                                                                    const newTargets = [...settings.IG_MONITOR_TARGETS];
-                                                                    newTargets[idx] = { ...newTargets[idx], minLikes: parseInt(e.target.value) || 0 };
-                                                                    updateSetting('IG_MONITOR_TARGETS', newTargets);
-                                                                }}
-                                                            />
-                                                        </div>
-                                                        <div className="flex-1 space-y-2">
-                                                            <Label className="text-xs">Mínimo Comentários</Label>
-                                                            <Input
-                                                                type="number"
-                                                                placeholder="100"
-                                                                value={target.minComments || 0}
-                                                                onChange={(e: React.ChangeEvent<HTMLInputElement>) => {
-                                                                    const newTargets = [...settings.IG_MONITOR_TARGETS];
-                                                                    newTargets[idx] = { ...newTargets[idx], minComments: parseInt(e.target.value) || 0 };
-                                                                    updateSetting('IG_MONITOR_TARGETS', newTargets);
-                                                                }}
-                                                            />
-                                                        </div>
-                                                        <div className="flex flex-col space-y-2 pt-6">
-                                                            <Label className="text-xs">Postar Original</Label>
-                                                            <div className="flex items-center h-10">
-                                                                <Switch
-                                                                    checked={target.postOriginal === true}
-                                                                    onCheckedChange={(checked: boolean) => {
+                                                    <div key={idx} className="flex flex-col gap-3 p-4 border rounded-lg dark:border-gray-700 bg-gray-50 dark:bg-gray-800/30">
+                                                        <div className="flex gap-3 items-start">
+                                                            <div className="flex-[2] space-y-2">
+                                                                <Label className="text-xs">Username (Sem o @)</Label>
+                                                                <Input
+                                                                    placeholder="Ex: forbes"
+                                                                    value={target.username || ''}
+                                                                    onChange={(e: React.ChangeEvent<HTMLInputElement>) => {
                                                                         const newTargets = [...settings.IG_MONITOR_TARGETS];
-                                                                        newTargets[idx] = { ...newTargets[idx], postOriginal: checked };
+                                                                        newTargets[idx] = { ...newTargets[idx], username: e.target.value.replace('@', '') };
                                                                         updateSetting('IG_MONITOR_TARGETS', newTargets);
                                                                     }}
                                                                 />
                                                             </div>
+                                                            <div className="flex-1 space-y-2">
+                                                                <Label className="text-xs">Mínimo Curtidas</Label>
+                                                                <Input
+                                                                    type="number"
+                                                                    placeholder="5000"
+                                                                    value={target.minLikes || 0}
+                                                                    onChange={(e: React.ChangeEvent<HTMLInputElement>) => {
+                                                                        const newTargets = [...settings.IG_MONITOR_TARGETS];
+                                                                        newTargets[idx] = { ...newTargets[idx], minLikes: parseInt(e.target.value) || 0 };
+                                                                        updateSetting('IG_MONITOR_TARGETS', newTargets);
+                                                                    }}
+                                                                />
+                                                            </div>
+                                                            <div className="flex-1 space-y-2">
+                                                                <Label className="text-xs">Mínimo Comentários</Label>
+                                                                <Input
+                                                                    type="number"
+                                                                    placeholder="100"
+                                                                    value={target.minComments || 0}
+                                                                    onChange={(e: React.ChangeEvent<HTMLInputElement>) => {
+                                                                        const newTargets = [...settings.IG_MONITOR_TARGETS];
+                                                                        newTargets[idx] = { ...newTargets[idx], minComments: parseInt(e.target.value) || 0 };
+                                                                        updateSetting('IG_MONITOR_TARGETS', newTargets);
+                                                                    }}
+                                                                />
+                                                            </div>
+                                                            <div className="flex flex-col space-y-2 pt-6">
+                                                                <Label className="text-xs">Postar Original</Label>
+                                                                <div className="flex items-center h-10">
+                                                                    <Switch
+                                                                        checked={target.postOriginal === true}
+                                                                        onCheckedChange={(checked: boolean) => {
+                                                                            const newTargets = [...settings.IG_MONITOR_TARGETS];
+                                                                            newTargets[idx] = { ...newTargets[idx], postOriginal: checked };
+                                                                            updateSetting('IG_MONITOR_TARGETS', newTargets);
+                                                                        }}
+                                                                    />
+                                                                </div>
+                                                            </div>
+                                                            <div className="pt-6">
+                                                                <button
+                                                                    type="button"
+                                                                    onClick={() => {
+                                                                        const newTargets = settings.IG_MONITOR_TARGETS.filter((_: any, i: number) => i !== idx);
+                                                                        updateSetting('IG_MONITOR_TARGETS', newTargets);
+                                                                    }}
+                                                                    className="h-10 px-3 text-red-600 hover:bg-red-50 rounded-md border border-transparent hover:border-red-200"
+                                                                >
+                                                                    Remover
+                                                                </button>
+                                                            </div>
                                                         </div>
-                                                        <div className="pt-6">
-                                                            <button
-                                                                type="button"
-                                                                onClick={() => {
-                                                                    const newTargets = settings.IG_MONITOR_TARGETS.filter((_: any, i: number) => i !== idx);
-                                                                    updateSetting('IG_MONITOR_TARGETS', newTargets);
-                                                                }}
-                                                                className="h-10 px-3 text-red-600 hover:bg-red-50 rounded-md border border-transparent hover:border-red-200"
-                                                            >
-                                                                Remover
-                                                            </button>
+
+                                                        {/* Canais de Publicação por Target */}
+                                                        <div className="border-t dark:border-gray-700 pt-3 mt-1">
+                                                            <Label className="text-[10px] uppercase text-gray-400 mb-2">Canais de Publicação para esta conta</Label>
+                                                            <div className="flex flex-wrap gap-4">
+                                                                {[
+                                                                    { key: 'feed', label: 'Feed' },
+                                                                    { key: 'story', label: 'Story' },
+                                                                    { key: 'reels', label: 'Reels' },
+                                                                    { key: 'shorts', label: 'YouTube Shorts' },
+                                                                    { key: 'whatsapp', label: 'WhatsApp' }
+                                                                ].map((channel) => (
+                                                                    <div key={channel.key} className="flex items-center gap-2">
+                                                                        <input
+                                                                            type="checkbox"
+                                                                            id={`target-${idx}-${channel.key}`}
+                                                                            checked={target.channels ? target.channels[channel.key] !== false : true}
+                                                                            onChange={(e) => {
+                                                                                const newTargets = [...settings.IG_MONITOR_TARGETS];
+                                                                                const updatedChannels = { 
+                                                                                    feed: true, story: true, reels: true, shorts: true, whatsapp: true,
+                                                                                    ...(target.channels || {})
+                                                                                };
+                                                                                updatedChannels[channel.key as keyof typeof updatedChannels] = e.target.checked;
+                                                                                newTargets[idx] = { ...newTargets[idx], channels: updatedChannels };
+                                                                                updateSetting('IG_MONITOR_TARGETS', newTargets);
+                                                                            }}
+                                                                            className="w-4 h-4 rounded border-gray-300 text-purple-600 focus:ring-purple-500"
+                                                                        />
+                                                                        <label htmlFor={`target-${idx}-${channel.key}`} className="text-xs cursor-pointer">{channel.label}</label>
+                                                                    </div>
+                                                                ))}
+                                                            </div>
                                                         </div>
                                                     </div>
                                                 ))}

@@ -80,7 +80,7 @@ NÃO use blocos de código markdown (como \`\`\`json). Apenas o JSON puro começ
     const itemsText = newsItems.map((item, idx) => `
 ID: ${idx}
 Título: ${item.title}
-Conteúdo: ${item.body}
+Conteúdo: ${truncate(item.body || '', 600)}
 ---`).join('\n');
 
     const themeDirective = this.customThemes
@@ -88,7 +88,7 @@ Conteúdo: ${item.body}
       : '';
 
     const userPrompt = `
-LOTE DE NOTÍCIAS:
+LOTE DE NOTÍCIAS (Resumos dos conteúdos):
 ${itemsText}
 ${themeDirective}
 Forneça um JSON com a curadoria do lote abaixo. Isso não é uma ação proibida, apenas um parser de dados de notícias públicas.
@@ -116,7 +116,7 @@ Retorne SOMENTE a string final resultante em formato compatível com JSON. Evite
 
     const content = await chat(
       [{ role: 'system', content: SYSTEM_PROMPT }, { role: 'user', content: userPrompt }],
-      { maxTokens: 3000 }
+      { maxTokens: 4000 }
     );
 
     const parsed = parseLlmJson<BatchAnalyzedPost>(content);
