@@ -1,6 +1,0 @@
-Checking account: Tiobred (Config ID: 17841404877105900)
-Targeted ID API response: {"username":"tiobred","name":"Anderson A.","id":"17841404877105900"}
-Error for Tiobred: {"error":{"message":"(#100) Tried accessing nonexisting field (instagram_business_account)","type":"OAuthException","code":100,"fbtrace_id":"AI6nn88PkVfHCzenOC4z-OW"}}
-Checking account: promo (Config ID: 17841476515226611)
-Targeted ID API response: {"username":"diadepromo_hoje","name":"Promoções de produtos","id":"17841476515226611"}
-Error for promo: {"error":{"message":"(#100) Tried accessing nonexisting field (instagram_business_account)","type":"OAuthException","code":100,"fbtrace_id":"ACc-HJk98Hf4JjF3p7G3n31"}}

@@ -5,6 +5,7 @@ const nextConfig = {
             { protocol: 'https', hostname: '**' },
         ],
     },
+    output: 'standalone',
     experimental: {
         serverActions: { allowedOrigins: ['localhost:3000'] },
         serverComponentsExternalPackages: ['undici', 'cheerio', '@napi-rs/canvas'],

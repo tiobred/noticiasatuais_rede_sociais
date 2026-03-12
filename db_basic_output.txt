@@ -1,8 +1,0 @@
---- DB Check Basic (with ts-ignore) ---
-Total retrieved: 17
-Encontrados 5 posts para jornadatop
-[2026-03-07T03:18:22.393Z] ID: cmmfr79a100057j9f5uoptjhu, Account: undefined, Meta: null
-[2026-03-07T03:18:22.313Z] ID: cmmfr797t00047j9fjf6rkua1, Account: undefined, Meta: null
-[2026-03-07T03:18:22.233Z] ID: cmmfr795k00037j9fc1b9wtmc, Account: undefined, Meta: null
-[2026-03-07T03:18:22.149Z] ID: cmmfr793900027j9ffc6duckd, Account: undefined, Meta: null
-[2026-03-07T03:18:21.990Z] ID: cmmfr78yu00017j9fp9n6oyah, Account: undefined, Meta: null

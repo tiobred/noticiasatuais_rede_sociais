@@ -1,0 +1,16 @@
+node_modules
+.next
+.git
+.env
+*.log
+*.txt
+*.json
+!package.json
+!package-lock.json
+!tsconfig.json
+!next.config.js
+Dockerfile
+.dockerignore
+k8s
+tmp
+scripts/logs

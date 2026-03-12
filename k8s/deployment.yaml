@@ -1,0 +1,52 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: noticia-da-hora
+  labels:
+    app: noticia-da-hora
+spec:
+  replicas: 2
+  selector:
+    matchLabels:
+      app: noticia-da-hora
+  template:
+    metadata:
+      labels:
+        app: noticia-da-hora
+    spec:
+      containers:
+      - name: noticia-da-hora
+        image: seu-registro/noticia-da-hora:latest
+        ports:
+        - containerPort: 3000
+        envFrom:
+        - configMapRef:
+            name: noticia-da-hora-config
+        - secretRef:
+            name: noticia-da-hora-secrets
+        resources:
+          limits:
+            cpu: "1"
+            memory: "1Gi"
+          requests:
+            cpu: "500m"
+            memory: "512Mi"
+---
+apiVersion: autoscaling/v2
+kind: HorizontalPodAutoscaler
+metadata:
+  name: noticia-da-hora-hpa
+spec:
+  scaleTargetRef:
+    apiVersion: apps/v1
+    kind: Deployment
+    name: noticia-da-hora
+  minReplicas: 2
+  maxReplicas: 5
+  metrics:
+  - type: Resource
+    resource:
+      name: cpu
+      target:
+        type: Utilization
+        averageUtilization: 70
