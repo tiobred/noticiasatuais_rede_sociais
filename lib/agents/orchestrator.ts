@@ -35,10 +35,14 @@ export async function runPipeline(accountId: string): Promise<{
         'CHANNEL_INSTAGRAM_STORY',
         'CHANNEL_INSTAGRAM_REELS',
         'CHANNEL_WHATSAPP',
-        'postingTimes',
+        'POSTING_TIMES',
+        'FEED_LAYOUT',
+        'STORY_LAYOUT',
+        'REELS_LAYOUT',
         'feed_layout',
         'story_layout',
-        'reels_layout'
+        'reels_layout',
+        'CHANNEL_YOUTUBE_SHORTS'
     ];
     const configMap = await getMergedConfigs(normalizedAccountId, configKeys);
 
@@ -47,13 +51,14 @@ export async function runPipeline(accountId: string): Promise<{
         return { postsFound: 0, postsNew: 0, postsPublished: 0 };
     }
 
-    const isFeedEnabled = configMap['CHANNEL_INSTAGRAM_FEED'] === true;
-    const isStoryEnabled = configMap['CHANNEL_INSTAGRAM_STORY'] === true;
-    const isReelsEnabled = configMap['CHANNEL_INSTAGRAM_REELS'] === true;
-    const isWhatsappEnabled = configMap['CHANNEL_WHATSAPP'] === true;
+    const isFeedEnabled = configMap['CHANNEL_INSTAGRAM_FEED'] === true || process.env.CHANNEL_INSTAGRAM_FEED === 'true';
+    const isStoryEnabled = configMap['CHANNEL_INSTAGRAM_STORY'] === true || process.env.CHANNEL_INSTAGRAM_STORY === 'true';
+    const isReelsEnabled = configMap['CHANNEL_INSTAGRAM_REELS'] === true || process.env.CHANNEL_INSTAGRAM_REELS === 'true';
+    const isWhatsappEnabled = configMap['CHANNEL_WHATSAPP'] === true || process.env.CHANNEL_WHATSAPP === 'true';
+    const isYoutubeEnabled = configMap['CHANNEL_YOUTUBE_SHORTS'] === true || process.env.CHANNEL_YOUTUBE_SHORTS === 'true';
 
-    if (!isFeedEnabled && !isStoryEnabled && !isReelsEnabled && !isWhatsappEnabled) {
-        console.log(`[orchestrator|${accountId}] Nenhum canal de publicação ativo (Feed, Story, Reels, WhatsApp). Cancelando pipeline.`);
+    if (!isFeedEnabled && !isStoryEnabled && !isReelsEnabled && !isWhatsappEnabled && !isYoutubeEnabled) {
+        console.log(`[orchestrator|${accountId}] Nenhum canal de publicação ativo (Feed, Story, Reels, WhatsApp, YouTube). Cancelando pipeline.`);
         return { postsFound: 0, postsNew: 0, postsPublished: 0 };
     }
 
@@ -87,11 +92,20 @@ export async function runPipeline(accountId: string): Promise<{
         try { igTargets = JSON.parse(igTargets); } catch (e) { igTargets = []; }
     }
 
-    let feedLayout;
-    try { feedLayout = typeof configMap['feed_layout'] === 'string' ? JSON.parse(configMap['feed_layout']) : configMap['feed_layout']; } catch (e) { }
+    const parseLayout = (val: any) => {
+        if (!val) return null;
+        if (typeof val === 'object') return val;
+        try { return JSON.parse(val); } catch (e) { return null; }
+    };
 
-    let storyLayout;
-    try { storyLayout = typeof configMap['story_layout'] === 'string' ? JSON.parse(configMap['story_layout']) : configMap['story_layout']; } catch (e) { }
+    const fLayout = parseLayout(configMap['feed_layout'] || configMap['FEED_LAYOUT']);
+    const sLayout = parseLayout(configMap['story_layout'] || configMap['STORY_LAYOUT']);
+    const rLayout = parseLayout(configMap['reels_layout'] || configMap['REELS_LAYOUT']);
+
+    console.log(`[orchestrator|${normalizedAccountId}] Layouts carregados: Feed=${!!fLayout}, Story=${!!sLayout}, Reels=${!!rLayout}`);
+    if (sLayout) {
+        console.log(`[orchestrator|${normalizedAccountId}] ℹ️ Story Layout Font Sizes: Title=${sLayout.fontSizeTitle}, Body=${sLayout.fontSizeBody}`);
+    }
 
     let reelsLayout;
     try { reelsLayout = typeof configMap['reels_layout'] === 'string' ? JSON.parse(configMap['reels_layout']) : configMap['reels_layout']; } catch (e) { }
@@ -99,6 +113,7 @@ export async function runPipeline(accountId: string): Promise<{
     const scraper = new ScraperAgent(scraperLimit, normalizedAccountId, dataSources);
     const instagramScraper = new InstagramScraperAgent();
     const analysis = new AnalysisAgent(themes);
+    const publisherAgent = new PublisherAgent();
 
     // --- CONCURRENCY CHECK ---
     const activeRun = await prisma.agentRun.findFirst({
@@ -141,21 +156,44 @@ export async function runPipeline(accountId: string): Promise<{
 
         postsFound = allItems.length;
 
-        const newItems = await scraper.filterNew(allItems);
+        const filteredItems = (await scraper.filterNew(allItems)).filter(item => {
+            const title = (item.title || '').toUpperCase();
+            const body = (item.body || '').trim().toUpperCase();
+            const raw = (item.rawContent || '').toUpperCase();
+
+            // Filtro contra posts de teste / vazios / lives / propagandas
+            const isSuspect = 
+                title.includes('LIVE') || 
+                title.includes('TESTE') || 
+                title.includes('CHECK OUT') ||
+                title.includes('AD:') ||
+                body.length < 15 || 
+                (title.length < 5 && body.length < 25) || 
+                body.includes('CONTEÚDO_TESTE') ||
+                body.includes('TEST CONTENT');
+
+            if (isSuspect) {
+                console.log(`[orchestrator|${normalizedAccountId}] 🚫 Filtrando post suspeito ou vazio: "${title}" (Body length: ${body.length})`);
+                return false;
+            }
+            return true;
+        });
+        const newItems = filteredItems;
         postsNew = newItems.length;
 
         await scraper.close();
 
-        if (newItems.length === 0) {
-            console.log(`[orchestrator|${normalizedAccountId}] Nenhuma notícia nova para analisar.`);
+        const dbPendingPosts = await prisma.post.findMany({
+            where: { accountId: normalizedAccountId, status: PostStatus.PENDING },
+            orderBy: { createdAt: 'desc' },
+            take: 10
+        });
+
+        if (newItems.length === 0 && dbPendingPosts.length === 0) {
+            console.log(`[orchestrator|${normalizedAccountId}] Nenhuma notícia nova para analisar e nenhum post pendente.`);
         } else {
             // ─── ETAPA 2: Análise Consolidada ─────────────────────
-            const dbPendingPosts = await prisma.post.findMany({
-                where: { accountId: normalizedAccountId, status: PostStatus.PENDING },
-                orderBy: { createdAt: 'desc' },
-                take: 10
-            });
-            console.log(`[orchestrator|${normalizedAccountId}] Encontrados ${dbPendingPosts.length} posts PENDING no banco.`);
+            console.log(`[orchestrator|${normalizedAccountId}] Iniciando análise: ${newItems.length} novos, ${dbPendingPosts.length} pendentes no banco.`);
 
             const currentPendingPosts: any[] = [];
 
@@ -172,6 +210,23 @@ export async function runPipeline(accountId: string): Promise<{
                     metadata: p.metadata
                 });
             }
+
+            // Filtrar posts pendentes vindos do banco contra lixo/vazio (segunda camada de proteção)
+            const filteredPending = currentPendingPosts.filter(p => {
+                const t = (p.title || '').toUpperCase();
+                const b = (p.body || '').trim().toUpperCase();
+                
+                return !(
+                    t.includes('LIVE') || 
+                    t.includes('TESTE') || 
+                    t.includes('AD:') ||
+                    (t.length < 5 && b.length < 25) ||
+                    b.includes('CONTEÚDO_TESTE')
+                );
+            });
+            
+            // Substituir a lista original pela filtrada
+            currentPendingPosts.splice(0, currentPendingPosts.length, ...filteredPending);
 
             // Adicionar novos itens
             for (const item of newItems) {
@@ -205,8 +260,13 @@ export async function runPipeline(accountId: string): Promise<{
                 } as any);
             }
 
-            // Dividir posts em "Para Analisar" e "Para Manter Original"
-            const postsToAnalyze = currentPendingPosts.filter(p => !p.postOriginal);
+            // Dividir posts em "Para Analisar" e "Para Manter Original" (Limite de 8 por lote)
+            const postsToAnalyze = currentPendingPosts.filter(p => !p.postOriginal).slice(0, 8);
+            const postsSkipped = currentPendingPosts.filter(p => !p.postOriginal).slice(8);
+
+            if (postsSkipped.length > 0) {
+                console.log(`[orchestrator|${normalizedAccountId}] ⚠️ ${postsSkipped.length} notícias excederam o limite do lote e serão processadas em outro momento.`);
+            }
 
             try {
                 if (postsToAnalyze.length > 0) {
@@ -243,15 +303,31 @@ export async function runPipeline(accountId: string): Promise<{
             }
         }
 
-        console.log(`\n[orchestrator|${normalizedAccountId}] --- Iniciando Stage 3 (Publicação) ---`);
-        // ─── ETAPA 3: Publicação em Lote ─────────────────────
-        // Agora buscamos TODOS os que estão PROCESSED no banco para esta conta
-        const allPendingToPublish = await prisma.post.findMany({
+        // Stage 3 Safety Filter: Remover posts vazios ou de teste que passaram pelas etapas anteriores
+        const allPendingToPublish = (await prisma.post.findMany({
             where: {
                 status: PostStatus.PROCESSED,
                 accountId: normalizedAccountId
             },
-            take: 20 // limite de segurança por run
+            take: 20
+        })).filter(p => {
+            const t = (p.title || '').toUpperCase();
+            const b = (p.body || '').trim().toUpperCase();
+            const isInvalid = 
+                t.includes('LIVE') || 
+                t.includes('TESTE') || 
+                t.includes('AD:') ||
+                b.length < 15 ||
+                (t.length < 5 && b.length < 25) ||
+                b.includes('CONTEÚDO_TESTE');
+            
+            if (isInvalid) {
+                console.log(`[orchestrator|${normalizedAccountId}] 🛡️ Filtro de segurança Estágio 3 removeu: "${p.title}"`);
+                // Marcar como SKIPPED para não tentar de novo
+                prisma.post.update({ where: { id: p.id }, data: { status: PostStatus.FAILED } }).catch(() => {});
+                return false;
+            }
+            return true;
         });
 
         console.log(`[orchestrator|${normalizedAccountId}] Debug: allPendingToPublish.length = ${allPendingToPublish.length}`);
@@ -394,13 +470,14 @@ export async function runPipeline(accountId: string): Promise<{
                                 await sleep(2000);
 
                             } else if (!c.postOriginal && isFeedEnabled) {
+
                                 console.log(`[orchestrator|${normalizedAccountId}] Compondo slide ${i + 1} para Carrossel: ${c.title}`);
                                 const composed = await composeSlideImage(
                                     c.imageUrl,
                                     c.title,
                                     c.summary,
                                     i,
-                                    feedLayout
+                                    fLayout || { fontColor: configMap['primaryColor'] || '#ffffff' }
                                 );
                                 composedSlideItems.push({ imageUrl: composed.publicUrl, postId: c.postId });
                             }
@@ -416,9 +493,17 @@ export async function runPipeline(accountId: string): Promise<{
                             const globalCaption = batchResult?.globalCaption || 'Confira as novidades do dia!';
 
                             if (composedSlideItems.length === 1) {
-                                await igPublisher.publishFeed(composedSlideItems[0].imageUrl, globalCaption);
+                                await publisherAgent.publishChannel(composedSlideItems[0].postId, Channel.INSTAGRAM_FEED, () => 
+                                    igPublisher.publishFeed(composedSlideItems[0].imageUrl, globalCaption),
+                                    normalizedAccountId
+                                );
                             } else {
-                                await igPublisher.publishCarousel(composedSlideItems.map(item => ({ imageUrl: item.imageUrl })), globalCaption);
+                                await publisherAgent.publishCarousel(
+                                    composedSlideItems.map(item => item.postId),
+                                    composedSlideItems.map(item => ({ imageUrl: item.imageUrl, title: '', summary: '' })), 
+                                    globalCaption,
+                                    fLayout
+                                );
                             }
 
                             // Registrar e marcar posts do carrossel
@@ -442,19 +527,22 @@ export async function runPipeline(accountId: string): Promise<{
 
 
             // 1b. Instagram Story — formato 9:16 vertical
-            if (configMap['CHANNEL_INSTAGRAM_STORY'] === true) {
-                console.log(`[orchestrator|${normalizedAccountId}] Publicando Stories no Instagram (${allPendingToPublish.length} itens)...`);
+            const isStoryEnabled = configMap['CHANNEL_INSTAGRAM_STORY'] === true;
+            if (isStoryEnabled) {
+                console.log(`[orchestrator|${normalizedAccountId}] 📱 Publicando Stories no Instagram (${allPendingToPublish.length} itens)...`);
                 try {
                     const igPublisher = new InstagramPublisher(targetAccount.accessToken, targetAccount.userId);
 
-                    // Seleção diversa: pegar até 3 Reels originais e até 3 News analisadas
+                    // Seleção diversa: pegar até X Reels originais e até Y News analisadas
                     const availableOriginals = allPendingToPublish.filter(p => (p.metadata as any)?.postOriginal === true);
                     const availableNews = allPendingToPublish.filter(p => (p.metadata as any)?.postOriginal !== true);
 
                     console.log(`[orchestrator|${normalizedAccountId}] Stories disponíveis: ${availableOriginals.length} originais, ${availableNews.length} notícias.`);
 
-                    const storyItems = [...availableOriginals.slice(0, 3), ...availableNews.slice(0, 3)];
-                    console.log(`[orchestrator|${normalizedAccountId}] Itens selecionados para Stories: ${storyItems.length}`);
+                    // Se Feed/Reels estiverem desativados, permitimos mais notícias (até 6)
+                    const newsLimit = (!isFeedEnabled && !isReelsEnabled) ? 6 : 3;
+                    const storyItems = [...availableOriginals.slice(0, 3), ...availableNews.slice(0, newsLimit)];
+                    console.log(`[orchestrator|${normalizedAccountId}] Itens selecionados para Stories: ${storyItems.length} (News Limit: ${newsLimit})`);
 
                     for (let i = 0; i < storyItems.length; i++) {
                         const item = storyItems[i];
@@ -491,7 +579,7 @@ export async function runPipeline(accountId: string): Promise<{
                                         storyImgUrl,
                                         item.title,
                                         item.body.slice(0, 250),
-                                        { fontColor: configMap['primaryColor'] || '#ffffff' }
+                                        sLayout || { fontColor: configMap['primaryColor'] || '#ffffff' }
                                     );
                                     finalStoryUrl = storyComposed.publicUrl;
                                 }
@@ -559,6 +647,57 @@ export async function runPipeline(accountId: string): Promise<{
                 }
             } else {
                 console.log(`[orchestrator|${normalizedAccountId}] ⏭️ Pulando WhatsApp (desativado ou herança global false)`);
+            }
+
+            // 3. YouTube Shorts - Viral Video
+            const isYoutubeEnabled = configMap['CHANNEL_YOUTUBE_SHORTS'] === true;
+            if (isYoutubeEnabled) {
+                console.log(`[orchestrator|${normalizedAccountId}] 📺 YouTube Shorts ativado. Preparando vídeos virais...`);
+                try {
+                    // Selecionar posts para YouTube: tanto notícias (analisadas) quanto originais (se forem vídeo)
+                    const youtubeCandidates = allPendingToPublish.filter(p => {
+                        const isOriginal = (p.metadata as any)?.postOriginal === true;
+                        const isVideo = p.imageUrl?.includes('.mp4') || p.imageUrl?.includes('video') || (p.metadata as any)?.mediaType === 'VIDEO';
+                        
+                        // Queremos postar originais se forem vídeo, ou notícias analisadas (que usarão fallback se não tiverem vídeo)
+                        return isOriginal ? isVideo : true;
+                    });
+                    
+                    if (youtubeCandidates.length > 0) {
+                        const cappedYoutube = youtubeCandidates.slice(0, 2); // Limite de 2 por run
+                        console.log(`[orchestrator|${normalizedAccountId}] Processando ${cappedYoutube.length} Shorts...`);
+                        
+                        for (const p of cappedYoutube) {
+                            try {
+                                const isOriginal = (p.metadata as any)?.postOriginal === true;
+                                const analyzed: any = {
+                                    title: p.title,
+                                    body: p.body,
+                                    summary: p.body,
+                                    hashtags: p.hashtags || [],
+                                    whatsapp: p.body,
+                                    instagram: { feed: p.body, story: p.body },
+                                    linkedin: p.body,
+                                    imageUrl: p.imageUrl,
+                                    postOriginal: isOriginal,
+                                    sourceName: p.sourceName
+                                };
+                                
+                                await publisherAgent.publishYoutubeShort(p.id, analyzed, normalizedAccountId);
+                                postsPublished++;
+                                console.log(`[orchestrator|${normalizedAccountId}] ✅ YouTube Short publicado para: ${p.title}`);
+                            } catch (itemErr: any) {
+                                console.error(`[orchestrator|${normalizedAccountId}] ❌ Erro ao publicar Short para ${p.id}:`, itemErr.message);
+                            }
+                        }
+                    } else {
+                        console.log(`[orchestrator|${normalizedAccountId}] Nenhuma mídia adequada para converter em Short.`);
+                    }
+                } catch (ytErr: any) {
+                    console.error(`[orchestrator|${normalizedAccountId}] ❌ Erro crítico no bloco YouTube:`, ytErr.message);
+                }
+            } else {
+                console.log(`[orchestrator|${normalizedAccountId}] ⏭️ Pulando YouTube Shorts (CHANNEL_YOUTUBE_SHORTS: ${configMap['CHANNEL_YOUTUBE_SHORTS']})`);
             }
 
         }

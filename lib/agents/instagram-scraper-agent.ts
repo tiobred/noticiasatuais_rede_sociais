@@ -12,7 +12,7 @@ export class InstagramScraperAgent {
                 return [];
             }
 
-            const tokenInfo = instagramTokens.find(t => t.id === accountId);
+            const tokenInfo = instagramTokens.find(t => t.id.toLowerCase() === accountId.toLowerCase());
 
             if (!tokenInfo || !tokenInfo.accessToken || !tokenInfo.userId) {
                 console.warn(`[InstagramScraperAgent] Tokens de Instagram não encontrados no ambiente ou não associados para accountId: ${accountId}. Pulando.`);
