@@ -9,6 +9,7 @@ const nextConfig = {
     experimental: {
         serverActions: { allowedOrigins: ['localhost:3000'] },
         serverComponentsExternalPackages: ['undici', 'cheerio', '@napi-rs/canvas'],
+        missingSuspenseWithCSRBailout: false,
     },
     async headers() {
         return [

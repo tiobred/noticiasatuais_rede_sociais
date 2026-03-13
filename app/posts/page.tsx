@@ -1,3 +1,4 @@
+export const dynamic = 'force-dynamic';
 import prisma from '@/lib/db';
 import { Sidebar } from '@/components/layout/Sidebar';
 import { format } from 'date-fns';

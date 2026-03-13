@@ -1,9 +1,17 @@
 import axios from 'axios';
 
-const EVOLUTION_URL = process.env.EVOLUTION_API_URL!.replace(/\/$/, '');
-const API_KEY = process.env.EVOLUTION_API_KEY!;
-const INSTANCE = encodeURIComponent(process.env.EVOLUTION_INSTANCE!);
-const DEFAULT_DESTINATION = process.env.WHATSAPP_DESTINATION!;
+function getWhatsAppConfigs() {
+    const url = (process.env.EVOLUTION_API_URL || '').replace(/\/$/, '');
+    const apiKey = process.env.EVOLUTION_API_KEY;
+    const instance = process.env.EVOLUTION_INSTANCE ? encodeURIComponent(process.env.EVOLUTION_INSTANCE) : '';
+    const destination = process.env.WHATSAPP_DESTINATION;
+
+    if (!url || !apiKey || !instance || !destination) {
+        throw new Error('WhatsApp env vars not configured (EVOLUTION_API_URL, EVOLUTION_API_KEY, EVOLUTION_INSTANCE, WHATSAPP_DESTINATION)');
+    }
+
+    return { url, apiKey, instance, destination };
+}
 
 export interface WhatsAppResult {
     messageId: string;
@@ -14,24 +22,29 @@ export interface WhatsAppResult {
  */
 export class WhatsAppPublisher {
 
-    private headers = {
-        'Content-Type': 'application/json',
-        apikey: API_KEY,
-    };
+    private getHeaders() {
+        const { apiKey } = getWhatsAppConfigs();
+        return {
+            'Content-Type': 'application/json',
+            apikey: apiKey,
+        };
+    }
 
     /**
      * Envia mensagem de texto para um número
      */
-    async sendText(message: string, to: string = DEFAULT_DESTINATION): Promise<WhatsAppResult> {
-        console.log(`[whatsapp] Enviando mensagem para ${to}...`);
+    async sendText(message: string, to?: string): Promise<WhatsAppResult> {
+        const configs = getWhatsAppConfigs();
+        const targetNumber = to || configs.destination;
+        console.log(`[whatsapp] Enviando mensagem para ${targetNumber}...`);
 
         const { data } = await axios.post(
-            `${EVOLUTION_URL}/message/sendText/${INSTANCE}`,
+            `${configs.url}/message/sendText/${configs.instance}`,
             {
-                number: to,
+                number: targetNumber,
                 text: message,
             },
-            { headers: this.headers }
+            { headers: this.getHeaders() }
         );
 
         const messageId = data?.key?.id ?? data?.id ?? 'sem-id';
@@ -42,18 +55,20 @@ export class WhatsAppPublisher {
     /**
      * Envia imagem com legenda
      */
-    async sendImage(imageUrl: string, caption: string, to: string = DEFAULT_DESTINATION): Promise<WhatsAppResult> {
-        console.log(`[whatsapp] Enviando imagem para ${to}...`);
+    async sendImage(imageUrl: string, caption: string, to?: string): Promise<WhatsAppResult> {
+        const configs = getWhatsAppConfigs();
+        const targetNumber = to || configs.destination;
+        console.log(`[whatsapp] Enviando imagem para ${targetNumber}...`);
 
         const { data } = await axios.post(
-            `${EVOLUTION_URL}/message/sendMedia/${INSTANCE}`,
+            `${configs.url}/message/sendMedia/${configs.instance}`,
             {
-                number: to,
+                number: targetNumber,
                 mediatype: 'image',
                 media: imageUrl,
                 caption,
             },
-            { headers: this.headers }
+            { headers: this.getHeaders() }
         );
 
         const messageId = data?.key?.id ?? data?.id ?? 'sem-id';
@@ -64,8 +79,10 @@ export class WhatsAppPublisher {
     /**
      * Envia alerta de erro ao administrador
      */
-    async sendAlert(errorMessage: string, to: string = DEFAULT_DESTINATION): Promise<void> {
+    async sendAlert(errorMessage: string, to?: string): Promise<void> {
+        const configs = getWhatsAppConfigs();
+        const targetNumber = to || configs.destination;
         const message = `🚨 *ALERTA — Notícia da Hora*\n\n${errorMessage}\n\n_${new Date().toLocaleString('pt-BR', { timeZone: 'America/Sao_Paulo' })}_`;
-        await this.sendText(message, to).catch(console.error);
+        await this.sendText(message, targetNumber).catch(console.error);
     }
 }

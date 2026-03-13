@@ -1,4 +1,6 @@
 import { NextResponse } from 'next/server';
+
+export const dynamic = 'force-dynamic';
 import prisma from '@/lib/db';
 import { getMergedConfigs } from '@/lib/db/config-helper';
 import { rateLimit } from '@/lib/rate-limit';
@@ -65,7 +67,12 @@ export async function GET(req: Request) {
         };
 
         // Normalização básica para a UI (garantir que layouts estejam disponíveis em minúsculas)
-        const normalized = { ...defaults, ...mergedConfigs };
+        const normalized = { ...defaults };
+        for (const [key, value] of Object.entries(mergedConfigs)) {
+            if (value !== undefined) {
+                normalized[key] = value;
+            }
+        }
         if (mergedConfigs.STORY_LAYOUT && !mergedConfigs.story_layout) normalized.story_layout = mergedConfigs.STORY_LAYOUT;
         if (mergedConfigs.FEED_LAYOUT && !mergedConfigs.feed_layout) normalized.feed_layout = mergedConfigs.FEED_LAYOUT;
         if (mergedConfigs.REELS_LAYOUT && !mergedConfigs.reels_layout) normalized.reels_layout = mergedConfigs.REELS_LAYOUT;

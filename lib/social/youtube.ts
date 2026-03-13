@@ -5,28 +5,33 @@ import fs from 'fs';
  * YouTube Publisher - Handles uploading viral shorts to YouTube.
  */
 export class YouTubePublisher {
-  private clientId: string;
-  private clientSecret: string;
-  private refreshToken: string;
+  constructor() {}
 
-  constructor() {
-    this.clientId = process.env.YOUTUBE_CLIENT_ID || '';
-    this.clientSecret = process.env.YOUTUBE_CLIENT_SECRET || '';
-    this.refreshToken = process.env.YOUTUBE_REFRESH_TOKEN || '';
+  /**
+   * Gets YouTube configurations from environment variables.
+   */
+  private getConfigs() {
+    const clientId = process.env.YOUTUBE_CLIENT_ID;
+    const clientSecret = process.env.YOUTUBE_CLIENT_SECRET;
+    const refreshToken = process.env.YOUTUBE_REFRESH_TOKEN;
+
+    if (!clientId || !clientSecret || !refreshToken) {
+      throw new Error('[youtube] Credenciais do YouTube ausentes no .env (YOUTUBE_CLIENT_ID, YOUTUBE_CLIENT_SECRET, YOUTUBE_REFRESH_TOKEN)');
+    }
+
+    return { clientId, clientSecret, refreshToken };
   }
 
   /**
    * Gets a fresh access token using the refresh token.
    */
   private async getAccessToken(): Promise<string> {
-    if (!this.clientId || !this.clientSecret || !this.refreshToken) {
-      throw new Error('[youtube] Credenciais do YouTube ausentes no .env');
-    }
+    const { clientId, clientSecret, refreshToken } = this.getConfigs();
 
     const response = await axios.post('https://oauth2.googleapis.com/token', {
-      client_id: this.clientId,
-      client_secret: this.clientSecret,
-      refresh_token: this.refreshToken,
+      client_id: clientId,
+      client_secret: clientSecret,
+      refresh_token: refreshToken,
       grant_type: 'refresh_token',
     });
 

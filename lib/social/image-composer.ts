@@ -1,11 +1,21 @@
 import { createCanvas, loadImage } from '@napi-rs/canvas';
 import type { SKRSContext2D } from '@napi-rs/canvas';
 import { createClient } from '@supabase/supabase-js';
+import { VideoComposer } from './video-composer';
+import axios from 'axios';
+import fs from 'fs';
+import path from 'path';
 
-const supabase = createClient(
-    process.env.SUPABASE_URL!,
-    process.env.SUPABASE_ANON_KEY!
-);
+function getSupabaseClient() {
+    const url = process.env.SUPABASE_URL;
+    const key = process.env.SUPABASE_ANON_KEY;
+
+    if (!url || !key) {
+        throw new Error('Supabase env vars not configured');
+    }
+
+    return createClient(url, key);
+}
 
 const BUCKET = 'media';
 
@@ -142,7 +152,7 @@ export async function composeSlideImage(
     const buffer = canvas.toBuffer('image/jpeg', 100);
     const filename = `slide-${Date.now()}-${slideIndex}.jpg`;
 
-    const { error } = await supabase.storage
+    const { error } = await getSupabaseClient().storage
         .from(BUCKET)
         .upload(filename, buffer, {
             contentType: 'image/jpeg',
@@ -151,7 +161,7 @@ export async function composeSlideImage(
 
     if (error) throw new Error(`[composer] Erro ao fazer upload do slide: ${error.message}`);
 
-    const { data: urlData } = supabase.storage.from(BUCKET).getPublicUrl(filename);
+    const { data: urlData } = getSupabaseClient().storage.from(BUCKET).getPublicUrl(filename);
     console.log(`[composer] ✅ Slide ${slideIndex + 1} pronto: ${filename}`);
     return { publicUrl: urlData.publicUrl };
 }
@@ -268,13 +278,13 @@ export async function composeStoryImage(
     const buffer = canvas.toBuffer('image/jpeg', 100);
     const filename = `story-${Date.now()}.jpg`;
 
-    const { error } = await supabase.storage
+    const { error } = await getSupabaseClient().storage
         .from(BUCKET)
         .upload(filename, buffer, { contentType: 'image/jpeg', upsert: true });
 
     if (error) throw new Error(`[composer] Erro ao fazer upload do story: ${error.message}`);
 
-    const { data: urlData } = supabase.storage.from(BUCKET).getPublicUrl(filename);
+    const { data: urlData } = getSupabaseClient().storage.from(BUCKET).getPublicUrl(filename);
     console.log(`[composer] ✅ Story pronto: ${filename}`);
     return { publicUrl: urlData.publicUrl };
 }
@@ -328,13 +338,13 @@ export async function composeOriginalStoryImage(
     const buffer = canvas.toBuffer('image/jpeg', 95);
     const filename = `story-orig-${Date.now()}-${Math.floor(Math.random() * 1000)}.jpg`;
 
-    const { error } = await supabase.storage
+    const { error } = await getSupabaseClient().storage
         .from(BUCKET)
         .upload(filename, buffer, { contentType: 'image/jpeg', upsert: true });
 
     if (error) throw new Error(`[composer] Erro ao fazer upload do story original: ${error.message}`);
 
-    const { data: urlData } = supabase.storage.from(BUCKET).getPublicUrl(filename);
+    const { data: urlData } = getSupabaseClient().storage.from(BUCKET).getPublicUrl(filename);
     console.log(`[composer] ✅ Story original pronto: ${filename}`);
     return { publicUrl: urlData.publicUrl };
 }
@@ -360,7 +370,7 @@ export async function rehostImage(url: string, prefix = 'original'): Promise<str
         const buffer = canvas.toBuffer('image/jpeg', 95);
         const filename = `${prefix}-${Date.now()}-${Math.floor(Math.random() * 1000)}.jpg`;
 
-        const { error } = await supabase.storage
+        const { error } = await getSupabaseClient().storage
             .from(BUCKET)
             .upload(filename, buffer, {
                 contentType: 'image/jpeg',
@@ -369,7 +379,7 @@ export async function rehostImage(url: string, prefix = 'original'): Promise<str
 
         if (error) throw error;
 
-        const { data: urlData } = supabase.storage.from(BUCKET).getPublicUrl(filename);
+        const { data: urlData } = getSupabaseClient().storage.from(BUCKET).getPublicUrl(filename);
         return urlData.publicUrl;
     } catch (err) {
         console.error(`[composer] Erro ao re-hospedar imagem:`, err);
@@ -378,34 +388,51 @@ export async function rehostImage(url: string, prefix = 'original'): Promise<str
 }
 
 /**
- * Re-hospeda um vídeo externo no Supabase Storage.
- * Crucial para Reels, pois URLs do Instagram CDN expiram rápido ou falham no processamento.
+ * Re-hospeda um vídeo externo no Supabase Storage, opcionalmente normalizando para Instagram.
  * @returns Um objeto contendo a URL pública e o nome do arquivo para deleção posterior.
  */
-export async function rehostVideo(url: string, prefix = 'video'): Promise<{ publicUrl: string; filename: string }> {
-    console.log(`[composer] Re-hospedando vídeo: ${url.slice(0, 50)}...`);
+export async function rehostVideo(url: string, prefix = 'video', normalize = false): Promise<{ publicUrl: string; filename: string }> {
+    const safeUrl = url || '';
+    console.log(`[composer] Re-hospedando vídeo${normalize ? ' (com normalização)' : ''}: ${safeUrl.slice(0, 50)}...`);
+    
+    const tempDir = path.join(process.cwd(), 'tmp', 'rehost');
+    if (!fs.existsSync(tempDir)) fs.mkdirSync(tempDir, { recursive: true });
+    
+    const inputFilename = `raw-${Date.now()}-${Math.floor(Math.random() * 1000)}.mp4`;
+    const inputPath = path.join(tempDir, inputFilename);
+
     try {
-        const axios = require('axios');
-        const response = await axios.get(url, { responseType: 'arraybuffer' });
+        const response = await axios.get(safeUrl, { responseType: 'arraybuffer' });
         const buffer = Buffer.from(response.data);
+        fs.writeFileSync(inputPath, buffer);
 
-        const filename = `${prefix}-${Date.now()}-${Math.floor(Math.random() * 1000)}.mp4`;
+        let finalPath = inputPath;
+        let finalFilename = `${prefix}-${Date.now()}-${Math.floor(Math.random() * 1000)}.mp4`;
 
-        const { error } = await supabase.storage
+        if (normalize) {
+            const videoComposer = new VideoComposer();
+            finalPath = await videoComposer.normalizeForInstagram(inputPath, `norm-${finalFilename}`);
+        }
+
+        const uploadBuffer = fs.readFileSync(finalPath);
+        const { error } = await getSupabaseClient().storage
             .from(BUCKET)
-            .upload(filename, buffer, {
+            .upload(finalFilename, uploadBuffer, {
                 contentType: 'video/mp4',
                 upsert: true,
             });
 
-        if (error) {
-            throw error;
-        }
+        if (error) throw error;
 
-        const { data: urlData } = supabase.storage.from(BUCKET).getPublicUrl(filename);
-        return { publicUrl: urlData.publicUrl, filename };
+        // Cleanup
+        if (fs.existsSync(inputPath)) fs.unlinkSync(inputPath);
+        if (normalize && fs.existsSync(finalPath)) fs.unlinkSync(finalPath);
+
+        const { data: urlData } = getSupabaseClient().storage.from(BUCKET).getPublicUrl(finalFilename);
+        return { publicUrl: urlData.publicUrl, filename: finalFilename };
     } catch (err) {
         console.error(`[composer] Erro ao re-hospedar vídeo:`, err);
+        if (fs.existsSync(inputPath)) try { fs.unlinkSync(inputPath); } catch {}
         return { publicUrl: url, filename: '' }; // fallback
     }
 }
@@ -417,7 +444,7 @@ export async function deleteHostedFile(filename: string): Promise<void> {
     if (!filename) return;
     try {
         console.log(`[composer] Removendo arquivo temporário: ${filename}`);
-        await supabase.storage.from(BUCKET).remove([filename]);
+        await getSupabaseClient().storage.from(BUCKET).remove([filename]);
     } catch (err) {
         console.error(`[composer] Falha ao remover arquivo do storage:`, err);
     }
@@ -430,6 +457,7 @@ export async function deleteHostedFile(filename: string): Promise<void> {
  * Suporta padrões comuns de CDNs (WordPress, Cloudinary, Imgix, G1, InfoMoney, etc).
  */
 function getHighResUrl(url: string): string {
+    if (!url) return '';
     try {
         const u = new URL(url);
 

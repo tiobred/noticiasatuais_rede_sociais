@@ -1,13 +1,24 @@
 import { Resend } from 'resend';
 
-const resend = new Resend(process.env.RESEND_API_KEY);
+let resendClient: Resend | null = null;
+
+function getResendClient() {
+    const key = process.env.RESEND_API_KEY;
+    if (!key) return null;
+    if (!resendClient) {
+        resendClient = new Resend(key);
+    }
+    return resendClient;
+}
+
 const ALERT_EMAIL = process.env.ALERT_EMAIL ?? '';
 
 /**
  * Envia email de alerta de erro usando Resend
  */
 export async function sendErrorEmail(subject: string, body: string): Promise<void> {
-    if (!ALERT_EMAIL || !process.env.RESEND_API_KEY) {
+    const resend = getResendClient();
+    if (!resend || !ALERT_EMAIL) {
         console.warn('[alerts] Email de alerta não configurado (RESEND_API_KEY ou ALERT_EMAIL ausente)');
         return;
     }

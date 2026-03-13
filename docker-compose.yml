@@ -1,33 +1,57 @@
 version: '3.8'
 
 services:
-  postgres:
-    image: postgres:16-alpine
-    container_name: noticia_db
-    restart: unless-stopped
+  verbalia-site:
+    image: tiobred/verbalia:latest
+    networks:
+      - rede_interna
     environment:
-      POSTGRES_USER: noticia_user
-      POSTGRES_PASSWORD: ${DB_PASSWORD:-noticia_pass_dev}
-      POSTGRES_DB: noticia_da_hora
-    ports:
-      - "5432:5432"
-    volumes:
-      - postgres_data:/var/lib/postgresql/data
-    healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U noticia_user -d noticia_da_hora"]
-      interval: 10s
-      timeout: 5s
-      retries: 5
+      - NODE_ENV=production
+      - DATABASE_URL=postgresql://postgres.jxeuveorzajtztjwycsp:WAaz6znUmBwwfADx@aws-1-sa-east-1.pooler.supabase.com:6543/postgres?pgbouncer=true&sslmode=requirepostgresql://postgres.jxeuveorzajtztjwycsp:WAaz6znUmBwwfADx@aws-1-sa-east-1.pooler.supabase.com:6543/postgres?pgbouncer=true&sslmode=require
+      - DIRECT_URL=postgresql://postgres.jxeuveorzajtztjwycsp:WAaz6znUmBwwfADx@db.jxeuveorzajtztjwycsp.supabase.co:5432/postgres
+      - SUPABASE_URL=${SUPABASE_URL}
+      - SUPABASE_ANON_KEY=${SUPABASE_ANON_KEY}
+      - OPENROUTER_API_KEY=${OPENROUTER_API_KEY}
+      - OPENROUTER_MODEL=${OPENROUTER_MODEL}
+      - GOOGLE_AI_API_KEY=${GOOGLE_AI_API_KEY}
+      - GEMINI_MODEL=${GEMINI_MODEL}
+      - INSTAGRAM_ACCOUNTS=${INSTAGRAM_ACCOUNTS}
+      - EVOLUTION_API_URL=${EVOLUTION_API_URL}
+      - EVOLUTION_API_KEY=${EVOLUTION_API_KEY}
+      - EVOLUTION_INSTANCE=${EVOLUTION_INSTANCE}
+      - WHATSAPP_DESTINATION=${WHATSAPP_DESTINATION}
+      - RESEND_API_KEY=${RESEND_API_KEY}
+      - ALERT_EMAIL=${ALERT_EMAIL}
+      - ALERT_WHATSAPP=${ALERT_WHATSAPP}
+      - NEXTAUTH_SECRET=${NEXTAUTH_SECRET}
+      - NEXTAUTH_URL=https://verbalia.com.br
+      - DASHBOARD_PASSWORD=${DASHBOARD_PASSWORD}
+      # YouTube
+      - YOUTUBE_CLIENT_ID=${YOUTUBE_CLIENT_ID}
+      - YOUTUBE_CLIENT_SECRET=${YOUTUBE_CLIENT_SECRET}
+      - YOUTUBE_REFRESH_TOKEN=${YOUTUBE_REFRESH_TOKEN}
+      - CHANNEL_YOUTUBE_SHORTS=${CHANNEL_YOUTUBE_SHORTS:-false}
+      # LinkedIn
+      - LINKEDIN_ACCESS_TOKEN=${LINKEDIN_ACCESS_TOKEN}
+      - LINKEDIN_PERSON_ID=${LINKEDIN_PERSON_ID}
+      # Scheduler
+      - SCRAPE_INTERVAL_MINUTES=${SCRAPE_INTERVAL_MINUTES:-60}
+    deploy:
+      replicas: 1
+      placement:
+        constraints:
+          - node.hostname == Hetzner
+      labels:
+        - "traefik.enable=true"
+        - "traefik.docker.network=rede_interna"
+        - "traefik.http.routers.verbalia.rule=Host(`verbalia.com.br`) || Host(`www.verbalia.com.br`)"
+        - "traefik.http.routers.verbalia.entrypoints=websecure"
+        - "traefik.http.routers.verbalia.tls=true"
+        - "traefik.http.routers.verbalia.tls.certresolver=letsencryptresolver"
+        - "traefik.http.services.verbalia.loadbalancer.server.port=3000"
+      restart_policy:
+        condition: on-failure
 
-  redis:
-    image: redis:7-alpine
-    container_name: noticia_redis
-    restart: unless-stopped
-    ports:
-      - "6379:6379"
-    volumes:
-      - redis_data:/data
-
-volumes:
-  postgres_data:
-  redis_data:
+networks:
+  rede_interna:
+    external: true

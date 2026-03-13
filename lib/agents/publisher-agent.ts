@@ -372,7 +372,8 @@ export class PublisherAgent {
         // Cores mais premium: Fundo escuro profundo, texto esmeralda vibrante
         const bgColor = '0f172a'; // slate-900
         const textColor = '10b981'; // emerald-500
-        const encoded = encodeURIComponent(title.toUpperCase().slice(0, 80));
+        const safeTitle = title || 'VERBOSE';
+        const encoded = encodeURIComponent(safeTitle.toUpperCase().slice(0, 80));
         return `https://via.placeholder.com/1080x1080/${bgColor}/${textColor}?text=${encoded}`;
     }
 }

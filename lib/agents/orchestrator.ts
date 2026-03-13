@@ -258,7 +258,23 @@ export async function runPipeline(accountId: string): Promise<{
 
             // Adicionar novos itens
             for (const item of newItems) {
-                const postMetadata = item.postOriginal ? { postOriginal: true, ...(item.metadata || {}) } : undefined;
+                // Verificar se já foi publicado/salvo para esta conta
+                const alreadyExists = await prisma.post.findFirst({
+                    where: {
+                        sourceId: item.sourceId,
+                        accountId: normalizedAccountId
+                    }
+                });
+
+                if (alreadyExists) {
+                    console.log(`[orchestrator|${normalizedAccountId}] Item ${item.sourceId} já existe no banco para esta conta, ignorando.`);
+                    continue;
+                }
+
+                const postMetadata = { 
+                    ...(item.metadata || {}),
+                    ...(item.postOriginal ? { postOriginal: true } : {})
+                };
 
                 const post = await prisma.post.create({
                     data: {
@@ -626,8 +642,8 @@ export async function runPipeline(accountId: string): Promise<{
 
                             if (isVideo && item.imageUrl) {
                                 // Story de Vídeo
-                                console.log(`[orchestrator|${normalizedAccountId}] Re-hospedando vídeo para Story...`);
-                                const rehostResult = await rehostVideo(item.imageUrl, 'story-vid');
+                                 console.log(`[orchestrator|${normalizedAccountId}] Re-hospedando vídeo para Story (com normalização)...`);
+                                 const rehostResult = await rehostVideo(item.imageUrl, 'story-vid', true);
                                 try {
                                     const pubResult = await igPublisher.publishStoryVideo(rehostResult.publicUrl);
                                     externalId = pubResult.postId;

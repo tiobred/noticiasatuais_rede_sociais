@@ -5,10 +5,19 @@ import { runPipeline } from '../lib/agents/orchestrator';
 import { RunStatus } from '@prisma/client';
 import { createClient } from '@supabase/supabase-js';
 
-const supabase = createClient(
-    process.env.SUPABASE_URL!,
-    process.env.SUPABASE_ANON_KEY!
-);
+let supabaseClient: any = null;
+
+function getSupabaseClient() {
+    const url = process.env.SUPABASE_URL;
+    const key = process.env.SUPABASE_ANON_KEY;
+    
+    if (!url || !key) return null;
+    
+    if (!supabaseClient) {
+        supabaseClient = createClient(url, key);
+    }
+    return supabaseClient;
+}
 
 const SLIDE_BUCKET = 'carousel-slides';
 
@@ -151,6 +160,12 @@ async function cleanupStuckRuns() {
  * Os Posts e publicações no banco de dados são mantidos intactos.
  */
 async function cleanupOldSlides() {
+    const supabase = getSupabaseClient();
+    if (!supabase) {
+        console.warn('⚠️ Supabase client not initialized (missing env vars). skipping cleanupOldSlides.');
+        return;
+    }
+
     try {
         const { data: files, error: listErr } = await supabase.storage
             .from(SLIDE_BUCKET)
@@ -161,8 +176,8 @@ async function cleanupOldSlides() {
 
         const oneDayAgo = new Date(Date.now() - 24 * 60 * 60 * 1000);
         const toDelete = files
-            .filter(f => f.created_at && new Date(f.created_at) < oneDayAgo)
-            .map(f => f.name);
+            .filter((f: any) => f.created_at && new Date(f.created_at) < oneDayAgo)
+            .map((f: any) => f.name);
 
         if (toDelete.length === 0) {
             console.log(`✅ Nenhuma imagem com mais de 24h. Total no bucket: ${files.length}`);

@@ -18,19 +18,32 @@ const usage = {
 
 const COOLDOWN_MS = 5 * 60 * 1000; // 5 min de cooldown após erro de rate-limit
 
-// ─── Clientes ─────────────────────────────────────────────────────────────────
-const openrouterClient = new OpenAI({
-    apiKey: process.env.OPENROUTER_API_KEY ?? 'missing',
-    baseURL: 'https://openrouter.ai/api/v1',
-    defaultHeaders: {
-        'HTTP-Referer': 'https://noticia-da-hora.vercel.app',
-        'X-Title': 'Notícia da Hora',
-    },
-});
+let _openrouterClient: OpenAI | null = null;
+function getOpenRouterClient() {
+    if (_openrouterClient) return _openrouterClient;
+    const apiKey = process.env.OPENROUTER_API_KEY;
+    if (!apiKey) return null;
+    
+    _openrouterClient = new OpenAI({
+        apiKey,
+        baseURL: 'https://openrouter.ai/api/v1',
+        defaultHeaders: {
+            'HTTP-Referer': 'https://noticia-da-hora.vercel.app',
+            'X-Title': 'Notícia da Hora',
+        },
+    });
+    return _openrouterClient;
+}
 
-const geminiClient = process.env.GOOGLE_AI_API_KEY
-    ? new GoogleGenerativeAI(process.env.GOOGLE_AI_API_KEY)
-    : null;
+let _geminiClient: GoogleGenerativeAI | null = null;
+function getGeminiClient() {
+    if (_geminiClient) return _geminiClient;
+    const apiKey = process.env.GOOGLE_AI_API_KEY;
+    if (!apiKey) return null;
+    
+    _geminiClient = new GoogleGenerativeAI(apiKey);
+    return _geminiClient;
+}
 
 const OPENROUTER_MODEL = process.env.OPENROUTER_MODEL ?? 'openai/gpt-oss-120b';
 const GEMINI_MODEL = process.env.GEMINI_MODEL ?? 'gemini-2.0-flash';
@@ -38,8 +51,8 @@ const GEMINI_MODEL = process.env.GEMINI_MODEL ?? 'gemini-2.0-flash';
 // ─── Helpers ──────────────────────────────────────────────────────────────────
 function isAvailable(provider: 'openrouter' | 'gemini'): boolean {
     const u = usage[provider];
-    if (provider === 'gemini' && !geminiClient) return false;
-    if (provider === 'openrouter' && !process.env.OPENROUTER_API_KEY) return false;
+    if (provider === 'gemini' && !getGeminiClient()) return false;
+    if (provider === 'openrouter' && !getOpenRouterClient()) return false;
     // Se teve erro recente, aguarda cooldown
     if (u.errors > 0 && Date.now() - u.lastError < COOLDOWN_MS) return false;
     return true;
@@ -122,7 +135,10 @@ async function callProvider(
     console.log(`[llm-router] Usando ${provider} (OR:${usage.openrouter.calls} / GEM:${usage.gemini.calls} calls)`);
 
     if (provider === 'openrouter') {
-        const response = await openrouterClient.chat.completions.create({
+        const client = getOpenRouterClient();
+        if (!client) throw new Error('OpenRouter não configurado (OPENROUTER_API_KEY ausente)');
+        
+        const response = await client.chat.completions.create({
             model: OPENROUTER_MODEL,
             messages,
             temperature: opts?.temperature ?? 0.7,
@@ -135,13 +151,14 @@ async function callProvider(
     }
 
     // Gemini
-    if (!geminiClient) throw new Error('Gemini não configurado (GOOGLE_AI_API_KEY ausente)');
+    const client = getGeminiClient();
+    if (!client) throw new Error('Gemini não configurado (GOOGLE_AI_API_KEY ausente)');
 
     const systemMsg = messages.find(m => m.role === 'system')?.content ?? '';
     const userMsgs = messages.filter(m => m.role !== 'system');
     const prompt = userMsgs.map(m => m.content).join('\n');
 
-    const model = geminiClient.getGenerativeModel({
+    const model = client.getGenerativeModel({
         model: GEMINI_MODEL,
         systemInstruction: systemMsg,
         generationConfig: {

@@ -4,6 +4,8 @@ import prisma from '@/lib/db';
 import { getMergedConfigs } from '@/lib/db/config-helper';
 import { rateLimit } from '@/lib/rate-limit';
 
+export const dynamic = 'force-dynamic';
+
 export async function POST(req: Request) {
     try {
         const ip = req.headers.get('x-forwarded-for') || '127.0.0.1';

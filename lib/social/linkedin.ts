@@ -1,8 +1,16 @@
 import axios from 'axios';
 
 const LI_BASE = 'https://api.linkedin.com/v2';
-const ACCESS_TOKEN = process.env.LINKEDIN_ACCESS_TOKEN!;
-const PERSON_ID = process.env.LINKEDIN_PERSON_ID!; // ex: urn:li:person:xxxxxxxxxx
+
+function getLinkedInConfigs() {
+    const accessToken = process.env.LINKEDIN_ACCESS_TOKEN;
+    const personId = process.env.LINKEDIN_PERSON_ID;
+
+    if (!accessToken || !personId) {
+        return null;
+    }
+    return { accessToken, personId };
+}
 
 export interface LinkedInPublishResult {
     postId: string;
@@ -19,8 +27,13 @@ export class LinkedInPublisher {
     async publishPost(text: string, imageUrl?: string): Promise<LinkedInPublishResult> {
         console.log('[linkedin] Publicando post...');
 
+        const configs = getLinkedInConfigs();
+        if (!configs) {
+            throw new Error('[linkedin] Credentials missing (LINKEDIN_ACCESS_TOKEN or LINKEDIN_PERSON_ID)');
+        }
+
         const headers = {
-            Authorization: `Bearer ${ACCESS_TOKEN}`,
+            Authorization: `Bearer ${configs.accessToken}`,
             'Content-Type': 'application/json',
             'X-Restli-Protocol-Version': '2.0.0',
         };
@@ -40,7 +53,7 @@ export class LinkedInPublisher {
         }
 
         const postBody: object = {
-            author: PERSON_ID,
+            author: configs.personId,
             lifecycleState: 'PUBLISHED',
             specificContent: {
                 'com.linkedin.ugc.ShareContent': {
@@ -66,15 +79,18 @@ export class LinkedInPublisher {
      * Registra upload de imagem no LinkedIn
      */
     private async registerImage(): Promise<{ uploadUrl: string; asset: string }> {
+        const configs = getLinkedInConfigs();
+        if (!configs) throw new Error('[linkedin] Credentials missing');
+
         const headers = {
-            Authorization: `Bearer ${ACCESS_TOKEN}`,
+            Authorization: `Bearer ${configs.accessToken}`,
             'Content-Type': 'application/json',
         };
 
         const body = {
             registerUploadRequest: {
                 recipes: ['urn:li:digitalmediaRecipe:feedshare-image'],
-                owner: PERSON_ID,
+                owner: configs.personId,
                 serviceRelationships: [{
                     relationshipType: 'OWNER',
                     identifier: 'urn:li:userGeneratedContent',
@@ -94,11 +110,14 @@ export class LinkedInPublisher {
      * Faz upload da imagem via URL remota
      */
     private async uploadImage(uploadUrl: string, imageUrl: string): Promise<void> {
+        const configs = getLinkedInConfigs();
+        if (!configs) throw new Error('[linkedin] Credentials missing');
+
         // Baixa a imagem e faz upload para o LinkedIn
         const imageResponse = await axios.get(imageUrl, { responseType: 'arraybuffer' });
         await axios.put(uploadUrl, imageResponse.data, {
             headers: {
-                Authorization: `Bearer ${ACCESS_TOKEN}`,
+                Authorization: `Bearer ${configs.accessToken}`,
                 'Content-Type': 'image/jpeg',
             },
         });

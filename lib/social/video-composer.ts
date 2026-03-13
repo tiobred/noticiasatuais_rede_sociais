@@ -162,7 +162,7 @@ export class VideoComposer {
     const outputPath = path.join(this.tempDir, outputFileName);
     
     // Escapar texto para o filtro drawtext (especialmente importante no Windows)
-    const escapedText = text.toUpperCase()
+    const escapedText = (text || '').toUpperCase()
       .replace(/:/g, '\\:')
       .replace(/'/g, "'\\\\\\''")
       .replace(/%/g, '\\%');
@@ -177,6 +177,35 @@ export class VideoComposer {
         .on('error', (err) => {
           console.error(`[video-composer] Captions error: ${err.message}`);
           reject(new Error(`[video-composer] Captions error: ${err.message}`));
+        })
+        .on('end', () => resolve(outputPath))
+        .save(outputPath);
+    });
+  }
+
+  async normalizeForInstagram(inputPath: string, outputFileName: string, maxDuration = 60): Promise<string> {
+    const outputPath = path.join(this.tempDir, outputFileName);
+    
+    return new Promise((resolve, reject) => {
+      ffmpeg(inputPath)
+        .duration(maxDuration)
+        .complexFilter([
+          // Resize and crop to 1080x1920 (9:16)
+          'scale=1080:1920:force_original_aspect_ratio=increase,crop=1080:1920'
+        ])
+        .outputOptions([
+          '-c:v libx264',
+          '-preset veryfast',
+          '-crf 23',
+          '-pix_fmt yuv420p',
+          '-c:a aac',
+          '-b:a 128k',
+          '-movflags +faststart' // Good for web playback/processing
+        ])
+        .on('start', (cmd) => console.log(`[video-composer] Normalizing command: ${cmd}`))
+        .on('error', (err) => {
+          console.error(`[video-composer] Normalization error: ${err.message}`);
+          reject(new Error(`[video-composer] Normalization error: ${err.message}`));
         })
         .on('end', () => resolve(outputPath))
         .save(outputPath);
