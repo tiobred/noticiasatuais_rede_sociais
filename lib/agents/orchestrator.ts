@@ -9,10 +9,25 @@ import { InstagramPublisher } from '@/lib/social/instagram';
 import { WhatsAppPublisher } from '@/lib/social/whatsapp';
 import { sleep } from '@/lib/utils';
 import { PostStatus, RunStatus, Channel } from '@prisma/client';
-// eslint-disable-next-line @typescript-eslint/no-explicit-any
 import { sendErrorEmail } from '@/lib/alerts';
 
 const FALLBACK_IMAGE = 'https://images.unsplash.com/photo-1590283603385-17ffb3a7f29f?q=80&w=1000&auto=format&fit=crop';
+
+function normalizeUrl(url: string | null | undefined): string | null {
+    if (!url) return null;
+    try {
+        const u = new URL(url);
+        u.search = ''; // Remove query params
+        u.hash = '';   // Remove hash
+        let pathname = u.pathname;
+        if (pathname.endsWith('/')) {
+            pathname = pathname.slice(0, -1);
+        }
+        return `${u.protocol}//${u.host}${pathname}`;
+    } catch (e) {
+        return url;
+    }
+}
 
 /**
  * Orchestrator — Coordena o pipeline completo com isolamento por Conta
@@ -23,6 +38,17 @@ export async function runPipeline(accountId: string): Promise<{
     postsPublished: number;
 }> {
     const normalizedAccountId = accountId.toLowerCase();
+
+    // --- INSTRUMENTATION: LOG INITIATION ---
+    await prisma.auditLog.create({
+        data: {
+            action: 'PIPELINE_INITIATED',
+            details: {
+                accountId: normalizedAccountId,
+                timestamp: new Date().toISOString()
+            }
+        }
+    });
 
     // --- BUSCAR CONFIGURAÇÕES DINÂMICAS MESCLADAS (Global + Conta) ---
     const configKeys = [
@@ -68,9 +94,10 @@ export async function runPipeline(accountId: string): Promise<{
      * Helper para verificar se um post (ou a mesma URL original) já foi publicado neste canal para esta conta.
      */
     async function isAlreadyPublished(postId: string, originalUrl: string | null, channel: Channel): Promise<boolean> {
+        const normalized = normalizeUrl(originalUrl);
         const conditions: any[] = [{ postId: postId, channel: channel, status: 'SUCCESS', accountId: normalizedAccountId }];
-        if (originalUrl) {
-            conditions.push({ post: { originalUrl: originalUrl }, channel: channel, status: 'SUCCESS', accountId: normalizedAccountId });
+        if (normalized) {
+            conditions.push({ post: { originalUrl: normalized }, channel: channel, status: 'SUCCESS', accountId: normalizedAccountId });
         }
         const existing = await prisma.socialPublication.findFirst({
             where: {
@@ -98,8 +125,10 @@ export async function runPipeline(accountId: string): Promise<{
     const isWhatsappEnabled = isChannelEnabled('CHANNEL_WHATSAPP');
     const isYoutubeEnabled = isChannelEnabled('CHANNEL_YOUTUBE_SHORTS');
 
+    console.log(`[orchestrator|${normalizedAccountId}] Channel status: Feed=${isFeedEnabled}, Story=${isStoryEnabled}, Reels=${isReelsEnabled}, YT=${isYoutubeEnabled}, WA=${isWhatsappEnabled}`);
+
     if (!isFeedEnabled && !isStoryEnabled && !isReelsEnabled && !isWhatsappEnabled && !isYoutubeEnabled) {
-        console.log(`[orchestrator|${accountId}] Nenhum canal de publicação ativo (Feed, Story, Reels, WhatsApp, YouTube). Cancelando pipeline.`);
+        console.log(`[orchestrator|${normalizedAccountId}] Nenhum canal de publicação ativo (Feed, Story, Reels, WhatsApp, YouTube). Cancelando pipeline.`);
         return { postsFound: 0, postsNew: 0, postsPublished: 0 };
     }
 
@@ -259,10 +288,10 @@ export async function runPipeline(accountId: string): Promise<{
             // Adicionar novos itens
             for (const item of newItems) {
                 // Verificar se já foi publicado/salvo para esta conta
-                const alreadyExists = await prisma.post.findFirst({
+                // Verificar se já existe (sourceId é @unique global no schema)
+                const alreadyExists = await prisma.post.findUnique({
                     where: {
-                        sourceId: item.sourceId,
-                        accountId: normalizedAccountId
+                        sourceId: item.sourceId
                     }
                 });
 
@@ -283,7 +312,7 @@ export async function runPipeline(accountId: string): Promise<{
                         body: item.body || '',
                         imageUrl: item.imageUrl,
                         hashtags: [],
-                        originalUrl: item.originalUrl ?? null,
+                        originalUrl: normalizeUrl(item.originalUrl),
                         sourceName: item.sourceName,
                         tags: item.tags,
                         rawContent: item.rawContent,
@@ -741,6 +770,19 @@ export async function runPipeline(accountId: string): Promise<{
                     const waText = batchResult?.whatsappConsolidated || 'Confira as novidades do dia!';
                     await whatsapp.sendText(`*Notícias para [${targetAccount.name}]*\n\n${waText}`);
                     console.log(`[orchestrator|${normalizedAccountId}] ✅ WhatsApp OK`);
+                    
+                    for (const p of allowedWhatsappPosts) {
+                        await prisma.socialPublication.create({
+                            data: {
+                                postId: p.id,
+                                accountId: normalizedAccountId,
+                                channel: 'WHATSAPP' as any,
+                                externalId: 'WA_' + Date.now(),
+                                status: 'SUCCESS'
+                            }
+                        }).catch(() => { });
+                    }
+
                     postsPublished++;
                 } catch (waErr: any) {
                     console.error(`[orchestrator|${normalizedAccountId}] ❌ Erro WhatsApp:`, (waErr as Error).message);
@@ -757,14 +799,24 @@ export async function runPipeline(accountId: string): Promise<{
                     // RESPEITANDO targetChannels
                     const youtubeCandidates = allPendingToPublish.filter(p => {
                         const targetChannels = (p.metadata as any)?.targetChannels;
-                        if (targetChannels && targetChannels.shorts === false) return false;
-
                         const isOriginal = (p.metadata as any)?.postOriginal === true;
-                        const isVideo = p.imageUrl?.includes('.mp4') || p.imageUrl?.includes('video') || (p.metadata as any)?.mediaType === 'VIDEO';
+                        const mediaType = (p.metadata as any)?.mediaType;
+                        const isVideo = p.imageUrl?.includes('.mp4') || p.imageUrl?.includes('video') || mediaType === 'VIDEO';
+
+                        if (targetChannels && targetChannels.shorts === false) {
+                            console.log(`[orchestrator|${normalizedAccountId}] YT Candidate Debug: Post ${p.id} skipped - shorts=false in targetChannels`);
+                            return false;
+                        }
+
+                        if (isOriginal && !isVideo) {
+                            console.log(`[orchestrator|${normalizedAccountId}] YT Candidate Debug: Post ${p.id} skipped - Original post must be a video`);
+                            return false;
+                        }
                         
-                        // Queremos postar originais se forem vídeo, ou notícias analisadas (que usarão fallback se não tiverem vídeo)
-                        return isOriginal ? isVideo : true;
+                        return true;
                     });
+
+                    console.log(`[orchestrator|${normalizedAccountId}] Found ${youtubeCandidates.length} potential candidates for YouTube Shorts.`);
                     
                     if (youtubeCandidates.length > 0) {
                         const cappedYoutube = youtubeCandidates.slice(0, 2); // Limite de 2 por run
@@ -793,6 +845,12 @@ export async function runPipeline(accountId: string): Promise<{
                                 };
                                 
                                 await publisherAgent.publishYoutubeShort(p.id, analyzed, normalizedAccountId);
+                                
+                                await prisma.post.update({
+                                    where: { id: p.id },
+                                    data: { status: PostStatus.PUBLISHED }
+                                }).catch(() => { });
+
                                 postsPublished++;
                                 console.log(`[orchestrator|${normalizedAccountId}] ✅ YouTube Short publicado para: ${p.title}`);
                             } catch (itemErr: any) {

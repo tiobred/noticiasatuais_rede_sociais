@@ -2,8 +2,10 @@ import 'dotenv/config';
 import cron from 'node-cron';
 import prisma from '../lib/db';
 import { runPipeline } from '../lib/agents/orchestrator';
+import { getMergedConfigs } from '../lib/db/config-helper';
 import { RunStatus } from '@prisma/client';
 import { createClient } from '@supabase/supabase-js';
+import cronParser from 'cron-parser';
 
 let supabaseClient: any = null;
 
@@ -24,6 +26,38 @@ const SLIDE_BUCKET = 'carousel-slides';
 /**
  * Scheduler Service — gerencia o agendamento de postagens baseado no SystemConfig isolado por Conta
  */
+
+function generateTimeSlots(start: string, end: string, interval: number): string[] {
+    if (!start || !end || !interval) return [];
+    const slots: string[] = [];
+    const [startH, startM] = start.split(':').map(Number);
+    const [endH, endM] = end.split(':').map(Number);
+    
+    let current = startH * 60 + startM;
+    const limit = endH * 60 + endM;
+    
+    while (current <= limit) {
+        const h = Math.floor(current / 60).toString().padStart(2, '0');
+        const m = (current % 60).toString().padStart(2, '0');
+        slots.push(`${h}:${m}`);
+        current += interval;
+    }
+    return slots;
+}
+
+function matchesCron(expression: string): boolean {
+    try {
+        const interval = cronParser.parseExpression(expression, { tz: 'America/Sao_Paulo' });
+        const now = new Date();
+        const prev = interval.prev().toDate();
+        // Se a última ocorrência foi nos últimos 58 segundos (intervalo de polling é 60s)
+        const diffMs = Math.abs(now.getTime() - prev.getTime());
+        return diffMs < 58000;
+    } catch (e) {
+        return false;
+    }
+}
+
 async function startScheduler() {
     console.log('\n🕒 Iniciando serviço de agendamento (Modo Multi-Contas)...');
 
@@ -31,83 +65,212 @@ async function startScheduler() {
     await cleanupStuckRuns();
 
     const allAccountsStr = process.env.INSTAGRAM_ACCOUNTS || '[]';
-    let allAccounts: { id: string, name: string }[] = [];
+    let allAccounts: { id: string, name: string, userId: string, accessToken: string }[] = [];
     try {
         allAccounts = JSON.parse(allAccountsStr);
-    } catch (e) { }
+    } catch (e: any) { 
+        console.error('❌ Erro ao parsear INSTAGRAM_ACCOUNTS:', e.message);
+        await prisma.auditLog.create({
+            data: {
+                action: 'SCHEDULER_ERROR',
+                details: { error: 'JSON_PARSE_ACCOUNTS', message: e.message }
+            }
+        }).catch(() => {});
+    }
 
     console.log(`📌 Encontradas ${allAccounts.length} contas configuradas no .env.`);
+    if (allAccounts.length === 0) {
+        console.warn('⚠️ Nenhuma conta encontrada! Verifique a variável INSTAGRAM_ACCOUNTS no .env.');
+    }
 
-    // 1. Cron Job dinâmico que checa minuto a minuto se há post pendente para alguma conta
-    cron.schedule('* * * * *', async () => {
-        const now = new Date();
-        const currentHour = now.getHours().toString().padStart(2, '0');
-        const currentMinute = now.getMinutes().toString().padStart(2, '0');
-        const currentTime = `${currentHour}:${currentMinute}`;
+    // 1. Loop de monitoramento minuto a minuto em vez de node-cron (para maior robustez)
+    (async () => {
+        console.log('🚀 Monitoramento de gatilhos ativado (Polling 60s)');
+        
+        while (true) {
+            const now = new Date();
+            const brTime = new Intl.DateTimeFormat('pt-BR', {
+                hour: '2-digit',
+                minute: '2-digit',
+                timeZone: 'America/Sao_Paulo',
+                hour12: false
+            }).format(now).replace(/[^0-9:]/g, ''); 
 
-        const accountsToRun = [];
+            const [brH, brM] = brTime.split(':').map(Number);
+            
+            console.log(`\n[${now.toLocaleTimeString()}] 🕒 Check: ${brTime} BR (${allAccounts.length} contas)`);
 
-        for (const account of allAccounts) {
-            try {
-                // Recupera configurações atualizadas para esta conta especifica
-                const configs = await prisma.systemConfig.findMany({ where: { accountId: account.id } });
-                const configMap = configs.reduce((acc, curr) => {
-                    acc[curr.key] = curr.value;
-                    return acc;
-                }, {} as Record<string, any>);
-
-                if (configMap['isActive'] === false) {
-                    continue; // Conta desativada
+            await prisma.auditLog.create({
+                data: {
+                    action: 'SCHEDULER_CHECK',
+                    details: { 
+                        timeUtc: now.toISOString(), 
+                        timeBr: brTime,
+                        accountsProcessed: allAccounts.length
+                    }
                 }
+            }).catch(e => console.error('Erro ao gravar AuditLog:', e));
 
-                if (configMap['schedulerEnabled'] === false) {
-                    continue; // Agendamento automático desativado pra esta conta
+            const accountsToRun = [];
+
+            for (const account of allAccounts) {
+                try {
+                    const relevantKeys = [
+                        'isActive', 'schedulerEnabled', 'CHANNEL_INSTAGRAM_FEED', 
+                        'CHANNEL_INSTAGRAM_STORY', 'CHANNEL_INSTAGRAM_REELS', 
+                        'CHANNEL_YOUTUBE_SHORTS', 'CHANNEL_WHATSAPP', 
+                        'SCHEDULER_TRIGGERS', 'POSTING_TIMES', 'postingTimes'
+                    ];
+                    
+                    const configMap = await getMergedConfigs(account.id, relevantKeys);
+                    const isActive = configMap['isActive'] !== false;
+                    const schedulerEnabled = configMap['schedulerEnabled'] !== false;
+                    
+                    // Helper para normalizar valores de canal (aceita boolean ou string "true")
+                    const isTrue = (val: any) => val === true || val === 'true';
+
+                    const channels = {
+                        feed: isTrue(configMap['CHANNEL_INSTAGRAM_FEED']),
+                        story: isTrue(configMap['CHANNEL_INSTAGRAM_STORY']),
+                        reels: isTrue(configMap['CHANNEL_INSTAGRAM_REELS']),
+                        yt: isTrue(configMap['CHANNEL_YOUTUBE_SHORTS']),
+                        wa: isTrue(configMap['CHANNEL_WHATSAPP'])
+                    };
+
+                    const isAnyChannelEnabled = Object.values(channels).some(v => v === true);
+
+                    if (!isActive || !schedulerEnabled || !isAnyChannelEnabled) {
+                        if (isActive && schedulerEnabled) {
+                           console.log(`  [${account.id}] ⏭️ Ignorado: Sem canais ativos (Config: Feed=${channels.feed}, Story=${channels.story}, Reels=${channels.reels})`);
+                        }
+                        continue;
+                    }
+
+                    let shouldRunNow = false;
+                    let matchedTrigger: any = null;
+                    
+                    const schedulerTriggers = configMap['SCHEDULER_TRIGGERS'];
+                    if (schedulerTriggers) {
+                        try {
+                            const parsed = typeof schedulerTriggers === 'string' 
+                                ? JSON.parse(schedulerTriggers) : schedulerTriggers;
+                            const triggers = Array.isArray(parsed) ? parsed : [parsed];
+
+                            for (const trigger of triggers) {
+                                let match = false;
+                                if (trigger.type === 'minutes') {
+                                    const mins = parseInt(trigger.value);
+                                    match = (mins > 0 && brM % mins === 0);
+                                } else if (trigger.type === 'hours') {
+                                    const hrs = parseInt(trigger.value);
+                                    match = (hrs > 0 && brH % hrs === 0 && brM === 0);
+                                } else if (trigger.type === 'days') {
+                                    match = (trigger.value === brTime);
+                                } else if (trigger.type === 'cron') {
+                                    match = matchesCron(trigger.value);
+                                }
+
+                                if (match) {
+                                    shouldRunNow = true;
+                                    matchedTrigger = { type: trigger.type, value: trigger.value };
+                                    
+                                    await prisma.auditLog.create({
+                                        data: {
+                                            action: 'SCHEDULER_MATCHED',
+                                            details: { accountId: account.id, triggerType: trigger.type, value: trigger.value, time: brTime }
+                                        }
+                                    }).catch(() => {});
+                                    break;
+                                }
+
+                                // Debug cada trigger para o AuditLog
+                                await prisma.auditLog.create({
+                                    data: {
+                                        action: 'SCHEDULER_DEBUG_TRIGGER',
+                                        details: { accountId: account.id, trigger, brH, brM, match }
+                                    }
+                                }).catch(() => {});
+                            }
+                        } catch (e) {
+                            console.error(`  [${account.id}] ❌ Erro triggers:`, e);
+                        }
+                    }
+
+                    // Fallback para POSTING_TIMES antigo
+                    if (!shouldRunNow) {
+                        let postingTimes: string[] = [];
+                        const pt = configMap['POSTING_TIMES'] || configMap['postingTimes'];
+                        
+                        // ... (Lógica de parsing de postingTimes omitida para brevidade, mas mantida no código real)
+                        // Wait, I should not omit it if I'm replacing the whole block.
+                        // I'll keep the parsing logic from the original.
+                        
+                        // Re-inserindo a lógica de parsing completa para garantir que funcione
+                        if (Array.isArray(pt)) {
+                            postingTimes = pt;
+                        } else if (typeof pt === 'string') {
+                            try { 
+                                const parsed = JSON.parse(pt);
+                                if (Array.isArray(parsed)) postingTimes = parsed;
+                                else if (typeof parsed === 'object' && parsed.start) {
+                                    postingTimes = generateTimeSlots(parsed.start, parsed.end, parsed.interval);
+                                }
+                            } catch (e) {}
+                        } else if (typeof pt === 'object' && pt) {
+                            if (pt.mode === 'slots' && Array.isArray(pt.slots)) postingTimes = pt.slots;
+                            else if (pt.start && pt.end) {
+                                postingTimes = generateTimeSlots(pt.start, pt.end, pt.interval || 120);
+                            }
+                        }
+
+                        if (postingTimes.includes(brTime)) {
+                            shouldRunNow = true;
+                            matchedTrigger = { type: 'posting_times', value: brTime };
+                        }
+                    }
+
+                    if (shouldRunNow) {
+                        console.log(`  [${account.id}] ✅ Gatilho acionado! (${matchedTrigger.type}=${matchedTrigger.value})`);
+                        accountsToRun.push(account);
+                    } else {
+                        // console.log(`  [${account.id}] 😴 Aguardando...`);
+                    }
+
+                } catch (err) {
+                    console.error(`  [${account.id}] ❌ Erro:`, err);
                 }
-
-                const isFeedEnabled = configMap['CHANNEL_INSTAGRAM_FEED'] === true;
-                const isStoryEnabled = configMap['CHANNEL_INSTAGRAM_STORY'] === true;
-                const isWhatsappEnabled = configMap['CHANNEL_WHATSAPP'] === true;
-
-                if (!isFeedEnabled && !isStoryEnabled && !isWhatsappEnabled) {
-                    continue; // Nenhum canal de publicação ativo
-                }
-
-                const postingTimesConf = configMap['postingTimes'] || {};
-                const postingTimes = postingTimesConf['instagram'] || [];
-
-                if (postingTimes.includes(currentTime)) {
-                    accountsToRun.push(account);
-                }
-
-            } catch (err) {
-                console.error(`❌ Falha ao processar config job scheduler para [${account.id}]:`, err);
             }
-        }
 
-        if (accountsToRun.length > 0) {
-            // Executa em background de forma sequencial para não bloquear outras verificações de cron
-            (async () => {
-                const sleep = (ms: number) => new Promise(resolve => setTimeout(resolve, ms));
-                for (let i = 0; i < accountsToRun.length; i++) {
-                    const account = accountsToRun[i];
-                    console.log(`\n🚀 [${now.toLocaleTimeString()}] Iniciando pipeline agendado para a conta: ${account.name} (${account.id}) @ ${currentTime}`);
-
+            if (accountsToRun.length > 0) {
+                for (const account of accountsToRun) {
                     try {
-                        const result = await runPipeline(account.id);
-                        console.log(`✅ Pipeline da conta [${account.id}] concluído. Posts encontrados: ${result.postsFound}, Novos: ${result.postsNew}, Publicados: ${result.postsPublished}`);
-                    } catch (err) {
-                        console.error(`❌ Erro durante execução agendada para [${account.id}]:`, err);
-                    }
-
-                    // Aguarda 1 minuto entre execuções caso ainda haja contas neste lote
-                    if (i < accountsToRun.length - 1) {
-                        console.log(`⏳ Aguardando 1 minuto antes de executar o próximo pipeline agendado para evitar bloqueios...`);
-                        await sleep(60000);
+                        console.log(`  🚀 Iniciando pipeline: ${account.id}`);
+                        await runPipeline(account.id);
+                        
+                        await prisma.auditLog.create({
+                            data: {
+                                action: 'PIPELINE_SCHEDULER_SUCCESS',
+                                details: { accountId: account.id, time: new Date().toISOString() }
+                            }
+                        }).catch(() => {});
+                    } catch (err: any) {
+                        console.error(`  ❌ Falha no pipeline: ${account.id}`, err);
+                        await prisma.auditLog.create({
+                            data: {
+                                action: 'PIPELINE_SCHEDULER_ERROR',
+                                details: { accountId: account.id, error: err.message }
+                            }
+                        }).catch(() => {});
                     }
                 }
-            })();
+            }
+
+            // Sincroniza para o próximo minuto redondo
+            const nextCheck = 60000 - (Date.now() % 60000);
+            await new Promise(resolve => setTimeout(resolve, nextCheck));
         }
-    });
+    })();
+
 
     console.log('🚀 Scheduler em execução (Polling * * * * *). Mantenha este processo ativo.');
 
@@ -117,13 +280,12 @@ async function startScheduler() {
     });
 
     // Limpeza de imagens do Storage (todo dia à meia-noite)
-    // Apaga slides gerados há mais de 24h — posts no banco são mantidos
     cron.schedule('0 0 * * *', async () => {
         console.log('\n🗑️ Iniciando limpeza noturna de imagens...');
         await cleanupOldSlides();
     });
 
-    // Limpeza inicial ao subir (remove imagens de dias anteriores)
+    // Limpeza inicial ao subir
     await cleanupOldSlides();
 }
 
@@ -131,14 +293,14 @@ async function startScheduler() {
  * Limpa runs que ficaram presos no status 'RUNNING'
  */
 async function cleanupStuckRuns() {
-    console.log('Sweep: Verificando runs travados (timeout > 15m)...');
-    const fifteenMinutesAgo = new Date(Date.now() - 15 * 60 * 1000);
+    console.log('Sweep: Verificando runs travados (timeout > 10m)...');
+    const tenMinutesAgo = new Date(Date.now() - 10 * 60 * 1000);
 
     try {
         const result = await prisma.agentRun.updateMany({
             where: {
                 status: RunStatus.RUNNING,
-                startedAt: { lt: fifteenMinutesAgo }
+                startedAt: { lt: tenMinutesAgo }
             },
             data: {
                 status: RunStatus.FAILED,
@@ -157,7 +319,6 @@ async function cleanupStuckRuns() {
 
 /**
  * Apaga imagens do bucket `carousel-slides` com mais de 24 horas.
- * Os Posts e publicações no banco de dados são mantidos intactos.
  */
 async function cleanupOldSlides() {
     const supabase = getSupabaseClient();

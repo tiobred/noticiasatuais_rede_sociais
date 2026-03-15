@@ -1,4 +1,9 @@
 import { NextResponse } from 'next/server';
+import cron from 'node-cron';
+import cronParser from 'cron-parser';
+
+// Prevent tree-shaking for scheduler deps in standalone
+const _dummy = [cron, cronParser];
 
 export const dynamic = 'force-dynamic';
 import prisma from '@/lib/db';
@@ -22,6 +27,7 @@ export async function GET(req: Request) {
             }
 
             const merged = await getMergedConfigs(accountId, keysArr);
+            console.log(`[API|Settings] GET keys: ${keysParam}, accountId: ${accountId}, result:`, JSON.stringify(merged));
             return NextResponse.json(merged);
         }
 
@@ -47,7 +53,8 @@ export async function GET(req: Request) {
             'STORY_LAYOUT',
             'reels_layout',
             'REELS_LAYOUT',
-            'schedulerEnabled'
+            'schedulerEnabled',
+            'SCHEDULER_TRIGGERS'
         ];
 
         const mergedConfigs = await getMergedConfigs(accountId, relevantKeys);
