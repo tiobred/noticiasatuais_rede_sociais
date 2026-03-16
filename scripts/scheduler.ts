@@ -100,6 +100,8 @@ async function startScheduler() {
             
             console.log(`\n[${now.toLocaleTimeString()}] 🕒 Check: ${brTime} BR (${allAccounts.length} contas)`);
 
+            // Comentado para evitar inflar o banco de dados
+            /*
             await prisma.auditLog.create({
                 data: {
                     action: 'SCHEDULER_CHECK',
@@ -110,6 +112,7 @@ async function startScheduler() {
                     }
                 }
             }).catch(e => console.error('Erro ao gravar AuditLog:', e));
+            */
 
             const accountsToRun = [];
 
@@ -149,24 +152,8 @@ async function startScheduler() {
                     let shouldRunNow = false;
                     let matchedTrigger: any = null;
                     
-                    // Buscar triggers globais e locais e concatenar (para não haver override excludente de lista)
-                    const globalTriggersObj = await prisma.systemConfig.findUnique({
-                        where: { key_accountId: { key: 'SCHEDULER_TRIGGERS', accountId: 'global' } }
-                    }).catch(() => null);
-                    const localTriggersObj = await prisma.systemConfig.findUnique({
-                        where: { key_accountId: { key: 'SCHEDULER_TRIGGERS', accountId: account.id } }
-                    }).catch(() => null);
-
-                    const parseTriggers = (val: any) => {
-                        if (!val) return [];
-                        const parsed = typeof val === 'string' ? JSON.parse(val) : val;
-                        return Array.isArray(parsed) ? parsed : [parsed];
-                    };
-
-                    const triggers = [
-                        ...parseTriggers(globalTriggersObj?.value),
-                        ...parseTriggers(localTriggersObj?.value)
-                    ];
+                    // Agora o `getMergedConfigs` já retorna os triggers concatenados corretamente
+                    const triggers = configMap['SCHEDULER_TRIGGERS'] || [];
 
                     if (triggers.length > 0) {
                         try {
@@ -198,13 +185,15 @@ async function startScheduler() {
                                     break;
                                 }
 
-                                // Debug cada trigger para o AuditLog
+                                // Comentado para evitar inflar o banco de dados
+                                /*
                                 await prisma.auditLog.create({
                                     data: {
                                         action: 'SCHEDULER_DEBUG_TRIGGER',
                                         details: { accountId: account.id, trigger, brH, brM, match }
                                     }
                                 }).catch(() => {});
+                                */
                             }
                         } catch (e) {
                             console.error(`  [${account.id}] ❌ Erro triggers:`, e);
@@ -300,8 +289,14 @@ async function startScheduler() {
         await cleanupOldSlides();
     });
 
-    // Limpeza inicial ao subir
+    // Limpeza de Banco de Dados (todo dia à meia-noite)
+    cron.schedule('0 0 * * *', async () => {
+        await cleanupDatabase();
+    });
+
+    // Chamadas de limpeza iniciais ao subir
     await cleanupOldSlides();
+    await cleanupDatabase();
 }
 
 /**
@@ -371,6 +366,28 @@ async function cleanupOldSlides() {
         }
     } catch (err) {
         console.error('❌ Erro na limpeza de slides:', err);
+    }
+}
+
+/**
+ * Apaga logs e runs antigos (> 2 dias) para manter o banco leve.
+ */
+async function cleanupDatabase() {
+    console.log('\n🗑️ Iniciando limpeza de dados históricos (AuditLog / AgentRun > 2 dias)...');
+    try {
+        const twoDaysAgo = new Date(Date.now() - 2 * 24 * 60 * 60 * 1000);
+
+        const runCount = await prisma.agentRun.deleteMany({
+            where: { startedAt: { lt: twoDaysAgo } }
+        });
+        
+        const logCount = await prisma.auditLog.deleteMany({
+            where: { createdAt: { lt: twoDaysAgo } }
+        });
+
+        console.log(`✅ Limpeza de Banco concluída: ${runCount.count} AgentRuns e ${logCount.count} AuditLogs removidos.`);
+    } catch (err) {
+        console.error('❌ Erro na limpeza do banco de dados:', err);
     }
 }
 

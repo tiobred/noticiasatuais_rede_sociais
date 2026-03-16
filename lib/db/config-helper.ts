@@ -23,8 +23,18 @@ export async function getMergedConfigs(rawAccountId: string, keys: string[]) {
         const globalConfig = configs.find(c => c.key === key && c.accountId === 'global');
         const accountConfig = configs.find(c => c.key === key && c.accountId === accountId);
 
-        // Se a conta tem valor, usa. Se não, usa o global. Se nenhum, fica undefined (ou o chamador decide o default)
-        merged[key] = accountConfig !== undefined ? accountConfig.value : (globalConfig !== undefined ? globalConfig.value : undefined);
+        if (key === 'SCHEDULER_TRIGGERS') {
+            const parseTriggers = (val: any) => {
+                if (!val) return [];
+                const parsed = typeof val === 'string' ? JSON.parse(val) : val;
+                return Array.isArray(parsed) ? parsed : [parsed];
+            };
+            const gTriggers = parseTriggers(globalConfig?.value);
+            const aTriggers = parseTriggers(accountConfig?.value);
+            merged[key] = [...gTriggers, ...aTriggers];
+        } else {
+            merged[key] = accountConfig !== undefined ? accountConfig.value : (globalConfig !== undefined ? globalConfig.value : undefined);
+        }
     }
     return merged;
 }
