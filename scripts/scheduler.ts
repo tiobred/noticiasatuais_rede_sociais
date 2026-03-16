@@ -149,12 +149,27 @@ async function startScheduler() {
                     let shouldRunNow = false;
                     let matchedTrigger: any = null;
                     
-                    const schedulerTriggers = configMap['SCHEDULER_TRIGGERS'];
-                    if (schedulerTriggers) {
+                    // Buscar triggers globais e locais e concatenar (para não haver override excludente de lista)
+                    const globalTriggersObj = await prisma.systemConfig.findUnique({
+                        where: { key_accountId: { key: 'SCHEDULER_TRIGGERS', accountId: 'global' } }
+                    }).catch(() => null);
+                    const localTriggersObj = await prisma.systemConfig.findUnique({
+                        where: { key_accountId: { key: 'SCHEDULER_TRIGGERS', accountId: account.id } }
+                    }).catch(() => null);
+
+                    const parseTriggers = (val: any) => {
+                        if (!val) return [];
+                        const parsed = typeof val === 'string' ? JSON.parse(val) : val;
+                        return Array.isArray(parsed) ? parsed : [parsed];
+                    };
+
+                    const triggers = [
+                        ...parseTriggers(globalTriggersObj?.value),
+                        ...parseTriggers(localTriggersObj?.value)
+                    ];
+
+                    if (triggers.length > 0) {
                         try {
-                            const parsed = typeof schedulerTriggers === 'string' 
-                                ? JSON.parse(schedulerTriggers) : schedulerTriggers;
-                            const triggers = Array.isArray(parsed) ? parsed : [parsed];
 
                             for (const trigger of triggers) {
                                 let match = false;
