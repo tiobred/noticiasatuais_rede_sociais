@@ -155,7 +155,7 @@ export default async function DashboardPage({
                         />
                     </div>
 
-                    <div className="lg:col-span-1">
+                    <div className="lg:col-span-1 space-y-6">
                         <AgentStatus
                             runs={recentRuns.map(r => ({
                                 id: r.id,

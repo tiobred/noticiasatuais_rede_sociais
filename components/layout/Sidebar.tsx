@@ -9,6 +9,7 @@ import {
     Settings,
     TrendingUp,
     Radio,
+    Calendar,
 } from 'lucide-react';
 import { useSidebar } from './SidebarContext';
 
@@ -16,6 +17,7 @@ const navItems = [
     { href: '/dashboard', label: 'Dashboard', icon: LayoutDashboard },
     { href: '/posts', label: 'Posts', icon: FileText },
     { href: '/agents', label: 'Agentes', icon: Bot },
+    { href: '/schedule', label: 'Agendamento', icon: Calendar },
     { href: '/settings', label: 'Config', icon: Settings },
 ];
 

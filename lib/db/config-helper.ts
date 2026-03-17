@@ -30,8 +30,17 @@ export async function getMergedConfigs(rawAccountId: string, keys: string[]) {
                 return Array.isArray(parsed) ? parsed : [parsed];
             };
             const gTriggers = parseTriggers(globalConfig?.value);
-            const aTriggers = parseTriggers(accountConfig?.value);
-            merged[key] = [...gTriggers, ...aTriggers];
+            const aTriggers = accountId !== 'global' ? parseTriggers(accountConfig?.value) : [];
+            const combined = [...gTriggers, ...aTriggers];
+            
+            // Deduplicate to clean up existing DB noise
+            const seen = new Set();
+            merged[key] = combined.filter(t => {
+                const content = JSON.stringify({ type: t.type, value: t.value, minute: t.minute, hour: t.hour });
+                if (seen.has(content)) return false;
+                seen.add(content);
+                return true;
+            });
         } else {
             merged[key] = accountConfig !== undefined ? accountConfig.value : (globalConfig !== undefined ? globalConfig.value : undefined);
         }

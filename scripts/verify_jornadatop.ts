@@ -3,7 +3,7 @@ import prisma from '../lib/db';
 async function main() {
     console.log('🔍 Buscando posts de @jornadatop no banco de dados...');
     const posts = await prisma.post.findMany({
-        where: { sourceUrl: { contains: 'jornadatop' } },
+        where: { originalUrl: { contains: 'jornadatop' } },
         orderBy: { createdAt: 'desc' },
         take: 10
     });

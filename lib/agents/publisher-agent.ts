@@ -164,34 +164,36 @@ export class PublisherAgent {
                     : null;
 
                 if (!mainVideoUrl) {
-                    console.log(`[publisher] ⚠️ Nenhum vídeo real encontrado para o post ${postId}. Usando fallback de suporte.`);
+                    console.log(`[publisher|${accountId}] ⚠️ Nenhum vídeo real encontrado para o post ${postId}. Usando fallback de suporte: ${this.SUPPORT_VIDEOS[0]}`);
+                } else {
+                    console.log(`[publisher|${accountId}] 📹 Vídeo principal identificado: ${mainVideoUrl}`);
                 }
 
                 const finalMainVideoUrl = mainVideoUrl || this.SUPPORT_VIDEOS[0];
+                console.log(`[publisher|${accountId}] 📥 Fazendo download do vídeo principal para: ${contentVideoPath}`);
                 await this.downloadFile(finalMainVideoUrl, contentVideoPath);
 
-                // 2. Se for um post original (já é um vídeo viral), podemos publicar direto ou com splitscreen
-                // O usuário quer "identificar vídeos virais... retirar partes virais".
-                // Se já é viral, vamos apenas garantir o formato e talvez adicionar legenda.
-                
                 let finalPath: string;
 
                 if (analyzed.postOriginal && mainVideoUrl) {
-                    console.log(`[publisher] Usando vídeo original viral de ${analyzed.sourceName || 'Desconhecido'}`);
-                    // Apenas garantir que está no formato/duração (createViralSplitscreen já faz o crop/scale)
-                    const bgUrl = this.SUPPORT_VIDEOS[1]; // Satisfying video de fundo
+                    console.log(`[publisher|${accountId}] 🎭 Usando vídeo original viral de ${analyzed.sourceName || 'Desconhecido'}`);
+                    const bgUrl = this.SUPPORT_VIDEOS[1]; 
+                    console.log(`[publisher|${accountId}] 📥 Fazendo download do vídeo de fundo (satisfatório) para: ${backgroundVideoPath}`);
                     await this.downloadFile(bgUrl, backgroundVideoPath);
                     
+                    console.log(`[publisher|${accountId}] ⚡ Criando splitscreen viral...`);
                     finalPath = await this.videoComposer.createViralSplitscreen(
                         contentVideoPath,
                         backgroundVideoPath,
                         outputFileName
                     );
                 } else {
-                    // Notícia: usa splitscreen com satisfatório
+                    console.log(`[publisher|${accountId}] 📰 Notícia: Criando splitscreen com vídeo satisfatório...`);
                     const bgUrl = this.SUPPORT_VIDEOS[Math.floor(Math.random() * this.SUPPORT_VIDEOS.length)];
+                    console.log(`[publisher|${accountId}] 📥 Fazendo download do vídeo de fundo para: ${backgroundVideoPath}`);
                     await this.downloadFile(bgUrl, backgroundVideoPath);
 
+                    console.log(`[publisher|${accountId}] ⚡ Criando splitscreen...`);
                     finalPath = await this.videoComposer.createViralSplitscreen(
                         contentVideoPath,
                         backgroundVideoPath,
@@ -199,29 +201,34 @@ export class PublisherAgent {
                     );
                 }
 
-                // 3. Adicionar Legendas Dinâmicas baseadas na análise da IA
+                // 3. Adicionar Legendas Dinâmicas
                 const captionText = analyzed.title.length > 50 ? analyzed.title.slice(0, 47) + '...' : analyzed.title;
+                console.log(`[publisher|${accountId}] 🖋️ Adicionando legendas dinâmicas: "${captionText}"`);
                 const captionedPath = await this.videoComposer.addDynamicCaptions(
                     finalPath,
                     captionText,
                     `captioned_${outputFileName}`
                 );
 
-                // 4. Publicar no YouTube com #Shorts
+                // 4. Publicar no YouTube
+                console.log(`[publisher|${accountId}] 📤 Publicando no YouTube Shorts via YouTube API...`);
                 const pubResult = await this.youtube.publishShort(
                     captionedPath,
                     `${analyzed.title} #Shorts`,
                     `${analyzed.whatsapp || analyzed.body || analyzed.summary}\n\n#Shorts #Viral #Noticias`
                 );
 
+                console.log(`[publisher|${accountId}] ✅ Publicação YouTube concluída: ${pubResult.postId}`);
+
                 // Cleanup
+                console.log(`[publisher|${accountId}] 🧹 Limpando arquivos temporários...`);
                 [contentVideoPath, backgroundVideoPath, finalPath, captionedPath].forEach(p => {
                     if (fs.existsSync(p)) try { fs.unlinkSync(p); } catch(e){}
                 });
 
                 return pubResult;
-            } catch (err) {
-                console.error(`[publisher|${accountId}] ❌ Erro no fluxo YouTube Shorts:`, err);
+            } catch (err: any) {
+                console.error(`[publisher|${accountId}] ❌ Erro no fluxo YouTube Shorts:`, err.message);
                 [contentVideoPath, backgroundVideoPath].forEach(p => {
                     if (fs.existsSync(p)) try { fs.unlinkSync(p); } catch(e){}
                 });

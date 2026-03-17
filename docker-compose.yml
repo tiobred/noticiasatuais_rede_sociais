@@ -7,7 +7,7 @@ services:
       - rede_interna
     environment:
       - NODE_ENV=production
-      - DATABASE_URL=postgresql://postgres.jxeuveorzajtztjwycsp:WAaz6znUmBwwfADx@aws-1-sa-east-1.pooler.supabase.com:6543/postgres?pgbouncer=true&sslmode=requirepostgresql://postgres.jxeuveorzajtztjwycsp:WAaz6znUmBwwfADx@aws-1-sa-east-1.pooler.supabase.com:6543/postgres?pgbouncer=true&sslmode=require
+      - DATABASE_URL=postgresql://postgres.jxeuveorzajtztjwycsp:WAaz6znUmBwwfADx@aws-1-sa-east-1.pooler.supabase.com:6543/postgres?pgbouncer=true&sslmode=require
       - DIRECT_URL=postgresql://postgres.jxeuveorzajtztjwycsp:WAaz6znUmBwwfADx@db.jxeuveorzajtztjwycsp.supabase.co:5432/postgres
       - SUPABASE_URL=${SUPABASE_URL}
       - SUPABASE_ANON_KEY=${SUPABASE_ANON_KEY}
@@ -51,6 +51,41 @@ services:
         - "traefik.http.services.verbalia.loadbalancer.server.port=3000"
       restart_policy:
         condition: on-failure
+
+  verbalia-scheduler:
+    image: tiobred/verbalia:latest
+    networks:
+      - rede_interna
+    environment:
+      - NODE_ENV=production
+      - DATABASE_URL=postgresql://postgres.jxeuveorzajtztjwycsp:WAaz6znUmBwwfADx@aws-1-sa-east-1.pooler.supabase.com:6543/postgres?pgbouncer=true&sslmode=require
+      - DIRECT_URL=postgresql://postgres.jxeuveorzajtztjwycsp:WAaz6znUmBwwfADx@db.jxeuveorzajtztjwycsp.supabase.co:5432/postgres
+      - SUPABASE_URL=${SUPABASE_URL}
+      - SUPABASE_ANON_KEY=${SUPABASE_ANON_KEY}
+      - OPENROUTER_API_KEY=${OPENROUTER_API_KEY}
+      - OPENROUTER_MODEL=${OPENROUTER_MODEL}
+      - GOOGLE_AI_API_KEY=${GOOGLE_AI_API_KEY}
+      - GEMINI_MODEL=${GEMINI_MODEL}
+      - INSTAGRAM_ACCOUNTS=${INSTAGRAM_ACCOUNTS}
+      - EVOLUTION_API_URL=${EVOLUTION_API_URL}
+      - EVOLUTION_API_KEY=${EVOLUTION_API_KEY}
+      - EVOLUTION_INSTANCE=${EVOLUTION_INSTANCE}
+      - WHATSAPP_DESTINATION=${WHATSAPP_DESTINATION}
+      - RESEND_API_KEY=${RESEND_API_KEY}
+      - ALERT_EMAIL=${ALERT_EMAIL}
+      - ALERT_WHATSAPP=${ALERT_WHATSAPP}
+      - NEXT_PUBLIC_SUPABASE_URL=${SUPABASE_URL}
+      - NEXT_PUBLIC_SUPABASE_ANON_KEY=${SUPABASE_ANON_KEY}
+      # YouTube
+      - YOUTUBE_CLIENT_ID=${YOUTUBE_CLIENT_ID}
+      - YOUTUBE_CLIENT_SECRET=${YOUTUBE_CLIENT_SECRET}
+      - YOUTUBE_REFRESH_TOKEN=${YOUTUBE_REFRESH_TOKEN}
+      - CHANNEL_YOUTUBE_SHORTS=${CHANNEL_YOUTUBE_SHORTS:-false}
+      - LINKEDIN_ACCESS_TOKEN=${LINKEDIN_ACCESS_TOKEN}
+      - LINKEDIN_PERSON_ID=${LINKEDIN_PERSON_ID}
+    command: ["node", "-r", "tsconfig-paths/register", ".scripts-dist/scripts/scheduler.js"]
+    restart_policy:
+      condition: on-failure
 
 networks:
   rede_interna:

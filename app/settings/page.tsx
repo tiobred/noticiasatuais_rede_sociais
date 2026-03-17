@@ -8,13 +8,61 @@ import { MobileMenuToggle } from '@/components/layout/MobileMenuToggle';
 
 // Tipos para as configurações
 interface PostingTimes {
-    start: string;
-    end: string;
-    interval: number;
+    mode?: 'window' | 'slots';
+    start?: string;
+    end?: string;
+    interval?: number;
+    slots?: string[];
+    specificDates?: Array<{ date: string; times: string[] }>;
 }
 
 interface AccountConfig {
+    isActive?: boolean;
+    CHANNEL_INSTAGRAM_FEED?: boolean;
+    CHANNEL_INSTAGRAM_STORY?: boolean;
+    CHANNEL_WHATSAPP?: boolean;
+    CHANNEL_INSTAGRAM_REELS?: boolean;
+    CHANNEL_YOUTUBE_SHORTS?: boolean;
+    SCRAPER_LIMIT_PER_SOURCE?: number;
+    imageStyle?: string;
+    primaryColor?: string;
+    feed_layout?: {
+        fontSizeTitle?: number;
+        fontSizeBody?: number;
+        overlayAlpha?: number;
+    };
+    story_layout?: {
+        fontSizeTitle?: number;
+        fontSizeBody?: number;
+        overlayAlpha?: number;
+    };
+    reels_layout?: {
+        fontSizeTitle?: number;
+        fontSizeBody?: number;
+        overlayAlpha?: number;
+    };
+    THEMES?: string;
+    DATA_SOURCES?: Array<{ name: string; url: string }>;
+    IG_MONITOR_TARGETS?: Array<{
+        username: string;
+        minLikes: number;
+        minComments: number;
+        postOriginal: boolean;
+        channels?: {
+            feed?: boolean;
+            story?: boolean;
+            reels?: boolean;
+            shorts?: boolean;
+            whatsapp?: boolean;
+        };
+    }>;
     [key: string]: any;
+}
+
+interface InstagramAccount {
+    id: string;
+    username: string;
+    name: string;
 }
 
 // Componentes utilitários de UI
@@ -54,7 +102,7 @@ const Label = ({ children, className = '' }: { children: React.ReactNode, classN
     </label>
 );
 
-const Input = (props: any) => (
+const Input = (props: React.InputHTMLAttributes<HTMLInputElement>) => (
     <input
         {...props}
         className={`flex h-10 w-full rounded-md border border-gray-300 dark:border-gray-700 bg-transparent px-3 py-2 text-sm placeholder:text-gray-400 focus:outline-none focus:ring-2 focus:ring-blue-500 disabled:cursor-not-allowed disabled:opacity-50 dark:bg-gray-800 ${props.className || ''}`}
@@ -74,7 +122,7 @@ const Switch = ({ checked, onCheckedChange }: { checked: boolean, onCheckedChang
 );
 
 export default function SettingsPage() {
-    const [instagramAccounts, setInstagramAccounts] = useState<any[]>([]);
+    const [instagramAccounts, setInstagramAccounts] = useState<InstagramAccount[]>([]);
     const [currentAccountId, setCurrentAccountId] = useState<string>('');
     const [originalSettings, setOriginalSettings] = useState<AccountConfig>({});
     const [settings, setSettings] = useState<AccountConfig>({});
@@ -91,6 +139,7 @@ export default function SettingsPage() {
 
     useEffect(() => {
         fetchInitialData();
+        // eslint-disable-next-line react-hooks/exhaustive-deps
     }, []);
 
     // Quando mudar a conta, carregar as configs específicas dela
@@ -98,6 +147,7 @@ export default function SettingsPage() {
         if (currentAccountId) {
             fetchAccountSettings(currentAccountId);
         }
+        // eslint-disable-next-line react-hooks/exhaustive-deps
     }, [currentAccountId]);
 
     const fetchInitialData = async () => {
@@ -142,15 +192,15 @@ export default function SettingsPage() {
     };
 
     // Helper functions para manter a mesma API de atualização do formulário
-    const updateSetting = (key: string, value: any) => {
+    const updateSetting = (key: keyof AccountConfig, value: any) => {
         setSettings(prev => ({ ...prev, [key]: value }));
     };
 
-    const updateNestedSetting = (category: string, key: string, value: any) => {
+    const updateNestedSetting = (category: keyof AccountConfig, key: string, value: any) => {
         setSettings(prev => ({
             ...prev,
             [category]: {
-                ...(prev[category] || {}),
+                ...(prev[category] as any || {}),
                 [key]: value
             }
         }));
@@ -268,7 +318,7 @@ export default function SettingsPage() {
                                             value={currentAccountId}
                                             onChange={(e) => setCurrentAccountId(e.target.value)}
                                         >
-                                            {instagramAccounts.map((acc: any) => (
+                                            {instagramAccounts.map((acc: InstagramAccount) => (
                                                 <option key={acc.id} value={acc.id}>
                                                     @{acc.username} ({acc.id})
                                                 </option>
@@ -304,61 +354,6 @@ export default function SettingsPage() {
                                                     checked={settings.isActive === true}
                                                     onCheckedChange={(checked: boolean) => updateSetting('isActive', checked)}
                                                 />
-                                            </div>
-                                        </CardContent>
-                                    </Card>
-
-                                    {/* Configurações de Agendamento */}
-                                    <Card>
-                                        <CardHeader>
-                                            <CardTitle>Agendamento e Limites</CardTitle>
-                                            <CardDescription>
-                                                Horários e limites de busca de notícias.
-                                            </CardDescription>
-                                        </CardHeader>
-                                        <CardContent className="space-y-4">
-                                            <div className="flex items-center justify-between">
-                                                <Label className="mb-0">Ativar Agendamento Automático</Label>
-                                                <Switch
-                                                    checked={settings.schedulerEnabled === true}
-                                                    onCheckedChange={(checked: boolean) => updateSetting('schedulerEnabled', checked)}
-                                                />
-                                            </div>
-                                            <div className="grid grid-cols-2 gap-4 pt-4 border-t dark:border-gray-800">
-                                                <div className="space-y-2">
-                                                    <Label>Horário Inicial</Label>
-                                                    <Input
-                                                        type="time"
-                                                        value={settings.postingTimes?.start || '08:00'}
-                                                        onChange={(e: React.ChangeEvent<HTMLInputElement>) => updateNestedSetting('postingTimes', 'start', e.target.value)}
-                                                    />
-                                                </div>
-                                                <div className="space-y-2">
-                                                    <Label>Horário Final</Label>
-                                                    <Input
-                                                        type="time"
-                                                        value={settings.postingTimes?.end || '22:00'}
-                                                        onChange={(e: React.ChangeEvent<HTMLInputElement>) => updateNestedSetting('postingTimes', 'end', e.target.value)}
-                                                    />
-                                                </div>
-                                                <div className="space-y-2 col-span-2 sm:col-span-1">
-                                                    <Label>Intervalo entre posts (minutos)</Label>
-                                                    <Input
-                                                        type="number"
-                                                        value={settings.postingTimes?.interval || 120}
-                                                        onChange={(e: React.ChangeEvent<HTMLInputElement>) => updateNestedSetting('postingTimes', 'interval', parseInt(e.target.value))}
-                                                    />
-                                                </div>
-                                                <div className="space-y-2 col-span-2 sm:col-span-1">
-                                                    <Label>Qtd. de Top Notícias (por Fonte)</Label>
-                                                    <Input
-                                                        type="number"
-                                                        min="1"
-                                                        max="20"
-                                                        value={settings.SCRAPER_LIMIT_PER_SOURCE || 2}
-                                                        onChange={(e: React.ChangeEvent<HTMLInputElement>) => updateSetting('SCRAPER_LIMIT_PER_SOURCE', parseInt(e.target.value))}
-                                                    />
-                                                </div>
                                             </div>
                                         </CardContent>
                                     </Card>
@@ -420,6 +415,28 @@ export default function SettingsPage() {
                                                 <Switch
                                                     checked={settings.CHANNEL_YOUTUBE_SHORTS === true}
                                                     onCheckedChange={(checked: boolean) => updateSetting('CHANNEL_YOUTUBE_SHORTS', checked)}
+                                                />
+                                            </div>
+                                        </CardContent>
+                                    </Card>
+
+                                    {/* Configurações do Scraper */}
+                                    <Card>
+                                        <CardHeader>
+                                            <CardTitle>Scraper e Notícias</CardTitle>
+                                            <CardDescription>
+                                                Configurações de limites para busca de conteúdo.
+                                            </CardDescription>
+                                        </CardHeader>
+                                        <CardContent>
+                                            <div className="space-y-2">
+                                                <Label>Qtd. de Top Notícias (por Fonte)</Label>
+                                                <Input
+                                                    type="number"
+                                                    min="1"
+                                                    max="20"
+                                                    value={settings.SCRAPER_LIMIT_PER_SOURCE || 2}
+                                                    onChange={(e: React.ChangeEvent<HTMLInputElement>) => updateSetting('SCRAPER_LIMIT_PER_SOURCE', parseInt(e.target.value))}
                                                 />
                                             </div>
                                         </CardContent>
@@ -591,7 +608,7 @@ export default function SettingsPage() {
                                         <CardContent className="space-y-6">
                                             <div className="space-y-2">
                                                 <Label>Temas e Instruções para Niche/Conta (Opcional)</Label>
-                                                <p className="text-xs text-gray-500 mb-2">Exemplo: "Focar em notícias sobre criptomoedas com tom bem-humorado", ou "Cobertura apenas sobre economia verde".</p>
+                                                <p className="text-xs text-gray-500 mb-2">Exemplo: &quot;Focar em notícias sobre criptomoedas com tom bem-humorado&quot;, ou &quot;Cobertura apenas sobre economia verde&quot;.</p>
                                                 <textarea
                                                     className="flex min-h-[100px] w-full rounded-md border border-gray-300 dark:border-gray-700 bg-white dark:bg-gray-800 px-3 py-2 text-sm placeholder:text-gray-400 focus:outline-none focus:ring-2 focus:ring-blue-500"
                                                     placeholder="Instruções de tema para o LLM..."
@@ -626,14 +643,15 @@ export default function SettingsPage() {
                                                 )}
 
                                                 <div className="space-y-3">
-                                                    {(Array.isArray(settings.DATA_SOURCES) ? settings.DATA_SOURCES : []).map((source: any, idx: number) => (
+                                                    {(Array.isArray(settings.DATA_SOURCES) ? settings.DATA_SOURCES : []).map((source, idx: number) => (
                                                         <div key={idx} className="flex gap-3 items-start">
                                                             <div className="flex-1 space-y-2">
                                                                 <Input
                                                                     placeholder="Nome da Fonte (Ex: Reuters USA)"
                                                                     value={source.name || ''}
                                                                     onChange={(e: React.ChangeEvent<HTMLInputElement>) => {
-                                                                        const newSources = [...settings.DATA_SOURCES];
+                                                                        const sources = settings.DATA_SOURCES || [];
+                                                                        const newSources = [...sources];
                                                                         newSources[idx] = { ...newSources[idx], name: e.target.value };
                                                                         updateSetting('DATA_SOURCES', newSources);
                                                                     }}
@@ -644,7 +662,8 @@ export default function SettingsPage() {
                                                                     placeholder="URL do RSS (Ex: https://feeds.reuters.com/...)"
                                                                     value={source.url || ''}
                                                                     onChange={(e: React.ChangeEvent<HTMLInputElement>) => {
-                                                                        const newSources = [...settings.DATA_SOURCES];
+                                                                        const sources = settings.DATA_SOURCES || [];
+                                                                        const newSources = [...sources];
                                                                         newSources[idx] = { ...newSources[idx], url: e.target.value };
                                                                         updateSetting('DATA_SOURCES', newSources);
                                                                     }}
@@ -653,7 +672,8 @@ export default function SettingsPage() {
                                                             <button
                                                                 type="button"
                                                                 onClick={() => {
-                                                                    const newSources = settings.DATA_SOURCES.filter((_: any, i: number) => i !== idx);
+                                                                    const sources = settings.DATA_SOURCES || [];
+                                                                    const newSources = sources.filter((_, i: number) => i !== idx);
                                                                     updateSetting('DATA_SOURCES', newSources);
                                                                 }}
                                                                 className="h-10 px-3 text-red-600 hover:bg-red-50 rounded-md border border-transparent hover:border-red-200"
@@ -706,7 +726,7 @@ export default function SettingsPage() {
                                             )}
 
                                             <div className="space-y-3">
-                                                {(Array.isArray(settings.IG_MONITOR_TARGETS) ? settings.IG_MONITOR_TARGETS : []).map((target: any, idx: number) => (
+                                                {(Array.isArray(settings.IG_MONITOR_TARGETS) ? settings.IG_MONITOR_TARGETS : []).map((target, idx: number) => (
                                                     <div key={idx} className="flex flex-col gap-3 p-4 border rounded-lg dark:border-gray-700 bg-gray-50 dark:bg-gray-800/30">
                                                         <div className="flex gap-3 items-start">
                                                             <div className="flex-[2] space-y-2">
@@ -715,7 +735,8 @@ export default function SettingsPage() {
                                                                     placeholder="Ex: forbes"
                                                                     value={target.username || ''}
                                                                     onChange={(e: React.ChangeEvent<HTMLInputElement>) => {
-                                                                        const newTargets = [...settings.IG_MONITOR_TARGETS];
+                                                                        const targets = settings.IG_MONITOR_TARGETS || [];
+                                                                        const newTargets = [...targets];
                                                                         newTargets[idx] = { ...newTargets[idx], username: e.target.value.replace('@', '') };
                                                                         updateSetting('IG_MONITOR_TARGETS', newTargets);
                                                                     }}
@@ -728,7 +749,8 @@ export default function SettingsPage() {
                                                                     placeholder="5000"
                                                                     value={target.minLikes || 0}
                                                                     onChange={(e: React.ChangeEvent<HTMLInputElement>) => {
-                                                                        const newTargets = [...settings.IG_MONITOR_TARGETS];
+                                                                        const targets = settings.IG_MONITOR_TARGETS || [];
+                                                                        const newTargets = [...targets];
                                                                         newTargets[idx] = { ...newTargets[idx], minLikes: parseInt(e.target.value) || 0 };
                                                                         updateSetting('IG_MONITOR_TARGETS', newTargets);
                                                                     }}
@@ -741,7 +763,8 @@ export default function SettingsPage() {
                                                                     placeholder="100"
                                                                     value={target.minComments || 0}
                                                                     onChange={(e: React.ChangeEvent<HTMLInputElement>) => {
-                                                                        const newTargets = [...settings.IG_MONITOR_TARGETS];
+                                                                        const targets = settings.IG_MONITOR_TARGETS || [];
+                                                                        const newTargets = [...targets];
                                                                         newTargets[idx] = { ...newTargets[idx], minComments: parseInt(e.target.value) || 0 };
                                                                         updateSetting('IG_MONITOR_TARGETS', newTargets);
                                                                     }}
@@ -753,7 +776,8 @@ export default function SettingsPage() {
                                                                     <Switch
                                                                         checked={target.postOriginal === true}
                                                                         onCheckedChange={(checked: boolean) => {
-                                                                            const newTargets = [...settings.IG_MONITOR_TARGETS];
+                                                                            const targets = settings.IG_MONITOR_TARGETS || [];
+                                                                            const newTargets = [...targets];
                                                                             newTargets[idx] = { ...newTargets[idx], postOriginal: checked };
                                                                             updateSetting('IG_MONITOR_TARGETS', newTargets);
                                                                         }}
@@ -764,7 +788,8 @@ export default function SettingsPage() {
                                                                 <button
                                                                     type="button"
                                                                     onClick={() => {
-                                                                        const newTargets = settings.IG_MONITOR_TARGETS.filter((_: any, i: number) => i !== idx);
+                                                                        const targets = settings.IG_MONITOR_TARGETS || [];
+                                                                        const newTargets = targets.filter((_, i: number) => i !== idx);
                                                                         updateSetting('IG_MONITOR_TARGETS', newTargets);
                                                                     }}
                                                                     className="h-10 px-3 text-red-600 hover:bg-red-50 rounded-md border border-transparent hover:border-red-200"
@@ -789,14 +814,15 @@ export default function SettingsPage() {
                                                                         <input
                                                                             type="checkbox"
                                                                             id={`target-${idx}-${channel.key}`}
-                                                                            checked={target.channels ? target.channels[channel.key] !== false : true}
+                                                                            checked={target.channels ? (target.channels as any)[channel.key] !== false : true}
                                                                             onChange={(e) => {
-                                                                                const newTargets = [...settings.IG_MONITOR_TARGETS];
-                                                                                const updatedChannels = { 
+                                                                                const targets = settings.IG_MONITOR_TARGETS || [];
+                                                                                const newTargets = [...targets];
+                                                                                const updatedChannels: any = { 
                                                                                     feed: true, story: true, reels: true, shorts: true, whatsapp: true,
                                                                                     ...(target.channels || {})
                                                                                 };
-                                                                                updatedChannels[channel.key as keyof typeof updatedChannels] = e.target.checked;
+                                                                                updatedChannels[channel.key] = e.target.checked;
                                                                                 newTargets[idx] = { ...newTargets[idx], channels: updatedChannels };
                                                                                 updateSetting('IG_MONITOR_TARGETS', newTargets);
                                                                             }}

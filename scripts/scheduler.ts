@@ -45,14 +45,18 @@ function generateTimeSlots(start: string, end: string, interval: number): string
     return slots;
 }
 
-function matchesCron(expression: string): boolean {
+function matchesCron(expression: string, date: Date = new Date()): boolean {
     try {
-        const interval = cronParser.parseExpression(expression, { tz: 'America/Sao_Paulo' });
-        const now = new Date();
-        const prev = interval.prev().toDate();
-        // Se a última ocorrência foi nos últimos 58 segundos (intervalo de polling é 60s)
-        const diffMs = Math.abs(now.getTime() - prev.getTime());
-        return diffMs < 58000;
+        const minuteStart = new Date(date);
+        minuteStart.setSeconds(0, 0);
+        const backDate = new Date(minuteStart.getTime() - 1000);
+        const interval = cronParser.parseExpression(expression, { 
+            tz: 'America/Sao_Paulo', 
+            currentDate: backDate 
+        });
+        const nextDate = interval.next().toDate();
+        const diffMs = Math.abs(nextDate.getTime() - minuteStart.getTime());
+        return diffMs < 1000;
     } catch (e) {
         return false;
     }
@@ -169,7 +173,7 @@ async function startScheduler() {
                                 } else if (trigger.type === 'days') {
                                     match = (trigger.value === brTime);
                                 } else if (trigger.type === 'cron') {
-                                    match = matchesCron(trigger.value);
+                                    match = matchesCron(trigger.value, now);
                                 }
 
                                 if (match) {
@@ -248,26 +252,32 @@ async function startScheduler() {
             if (accountsToRun.length > 0) {
                 for (const account of accountsToRun) {
                     try {
-                        console.log(`  🚀 Iniciando pipeline: ${account.id}`);
-                        await runPipeline(account.id);
+                        console.log(`  🚀 Iniciando pipeline em background: ${account.id}`);
                         
-                        await prisma.auditLog.create({
-                            data: {
-                                action: 'PIPELINE_SCHEDULER_SUCCESS',
-                                details: { accountId: account.id, time: new Date().toISOString() }
-                            }
-                        }).catch(() => {});
+                        runPipeline(account.id).then(() => {
+                            console.log(`  ✅ Pipeline finalizado para ${account.id}`);
+                            prisma.auditLog.create({
+                                data: {
+                                    action: 'PIPELINE_SCHEDULER_SUCCESS',
+                                    details: { accountId: account.id, time: new Date().toISOString() }
+                                }
+                            }).catch(() => {});
+                        }).catch((err: any) => {
+                            console.error(`  ❌ Falha no pipeline: ${account.id}`, err);
+                            prisma.auditLog.create({
+                                data: {
+                                    action: 'PIPELINE_SCHEDULER_ERROR',
+                                    details: { accountId: account.id, error: err.message }
+                                }
+                            }).catch(() => {});
+                        });
+
                     } catch (err: any) {
-                        console.error(`  ❌ Falha no pipeline: ${account.id}`, err);
-                        await prisma.auditLog.create({
-                            data: {
-                                action: 'PIPELINE_SCHEDULER_ERROR',
-                                details: { accountId: account.id, error: err.message }
-                            }
-                        }).catch(() => {});
+                         console.error(`  ❌ Erro ao disparar pipeline para ${account.id}:`, err);
                     }
                 }
             }
+
 
             // Sincroniza para o próximo minuto redondo
             const nextCheck = 60000 - (Date.now() % 60000);
@@ -278,10 +288,11 @@ async function startScheduler() {
 
     console.log('🚀 Scheduler em execução (Polling * * * * *). Mantenha este processo ativo.');
 
-    // Limpeza periódica de runs travados (cada 1 hora)
-    cron.schedule('0 * * * *', async () => {
+    // Limpeza periódica de runs travados (cada 10 minutos)
+    cron.schedule('*/10 * * * *', async () => {
         await cleanupStuckRuns();
     });
+
 
     // Limpeza de imagens do Storage (todo dia à meia-noite)
     cron.schedule('0 0 * * *', async () => {

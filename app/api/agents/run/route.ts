@@ -56,23 +56,51 @@ export async function POST(req: Request) {
 
         // Run sequentially in background with a 1-minute delay between accounts
         if (accountsToRun.length > 0) {
+            // Criar um run "Pai" para rastrear o progresso do lote manual
+            const parentRun = await prisma.agentRun.create({
+                data: {
+                    agentName: 'Execução Manual (Dashboard)',
+                    status: 'RUNNING'
+                }
+            });
+
             (async () => {
                 const sleep = (ms: number) => new Promise(resolve => setTimeout(resolve, ms));
+                let totalFound = 0;
+                let totalNew = 0;
+                let totalPublished = 0;
+
                 for (let i = 0; i < accountsToRun.length; i++) {
                     const accountId = accountsToRun[i];
                     console.log(`[API-BKG] Iniciando pipeline para ${accountId} (${i + 1}/${accountsToRun.length})`);
                     try {
-                        await runPipeline(accountId);
+                        const result = await runPipeline(accountId);
+                        totalFound += result.postsFound || 0;
+                        totalNew += result.postsNew || 0;
+                        totalPublished += result.postsPublished || 0;
                     } catch (err) {
                         console.error(`[API-BKG] Erro no pipeline manual [${accountId}]:`, err);
                     }
 
-                    // Delay before next account
+                    // Delay antes da próxima conta para evitar bloqueios
                     if (i < accountsToRun.length - 1) {
                         console.log(`[API-BKG] Aguardando 1 minuto antes da próxima conta para evitar bloqueios...`);
-                        await sleep(60000); // 1 minuto de intervalo
+                        await sleep(60000); 
                     }
                 }
+
+                // Finalizar o run pai com os totais
+                await prisma.agentRun.update({
+                    where: { id: parentRun.id },
+                    data: {
+                        status: 'SUCCESS',
+                        postsFound: totalFound,
+                        postsNew: totalNew,
+                        postsPublished: totalPublished,
+                        finishedAt: new Date()
+                    }
+                });
+
                 console.log(`[API-BKG] Todos os pipelines manuais foram finalizados.`);
             })();
         }

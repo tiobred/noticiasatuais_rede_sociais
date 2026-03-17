@@ -38,6 +38,10 @@ ENV NEXT_TELEMETRY_DISABLED=1
 # Gerar Prisma Client
 RUN npx prisma generate
 
+# Compilar scripts (scheduler, etc)
+RUN npm install -g typescript tsconfig-paths
+RUN npx tsc --project tsconfig.scripts.json
+
 # Build da aplicação
 RUN npm run build
 
@@ -62,16 +66,22 @@ RUN apt-get update && apt-get install -y \
 RUN groupadd --gid 1001 nodejs
 RUN useradd --uid 1001 --gid nodejs --shell /bin/bash --create-home nextjs
 
-# Criar pastas public e tmp caso não existam
-RUN mkdir -p ./.next/static && mkdir -p ./public && mkdir -p ./tmp
-
-# Garantir permissões para o usuário nextjs
-RUN chown -R nextjs:nodejs ./public ./tmp
+# Criar pastas e garantir permissões
+RUN mkdir -p ./.next/static && mkdir -p ./public && \
+    mkdir -p /app/tmp/video-process && \
+    chown -R nextjs:nodejs ./public /app/tmp && \
+    chmod -R 777 /app/tmp
 
 
 # Copiar arquivos necessários do build standalone
 COPY --from=builder --chown=nextjs:nodejs /app/.next/standalone ./
 COPY --from=builder --chown=nextjs:nodejs /app/.next/static ./.next/static
+
+# Copiar scripts compilados para o runner
+COPY --from=builder --chown=nextjs:nodejs /app/.scripts-dist ./.scripts-dist
+COPY --from=builder --chown=nextjs:nodejs /app/tsconfig.scripts.json ./
+# O standalone não inclui node_modules, mas precisamos das deps de prod para rodar os scripts se usarmos node puro.
+# No entanto, o .next/standalone/node_modules existe! Podemos tentar usar o node_modules de lá.
 
 # Copiar public apenas se existir (usando wildcard)
 COPY --from=builder /app/public* ./public/

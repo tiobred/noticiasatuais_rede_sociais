@@ -203,11 +203,24 @@ export class VideoComposer {
           '-movflags +faststart' // Good for web playback/processing
         ])
         .on('start', (cmd) => console.log(`[video-composer] Normalizing command: ${cmd}`))
+        .on('progress', (progress) => {
+          if (progress.percent) {
+            console.log(`[video-composer] Normalizing... ${Math.round(progress.percent)}%`);
+          }
+        })
+        .on('stderr', (stderrLine) => {
+          if (stderrLine.includes('Error') || stderrLine.includes('fail')) {
+            console.error(`[video-composer] FFmpeg STDERR: ${stderrLine}`);
+          }
+        })
         .on('error', (err) => {
           console.error(`[video-composer] Normalization error: ${err.message}`);
           reject(new Error(`[video-composer] Normalization error: ${err.message}`));
         })
-        .on('end', () => resolve(outputPath))
+        .on('end', () => {
+          console.log(`[video-composer] ✅ Normalization complete: ${outputFileName}`);
+          resolve(outputPath);
+        })
         .save(outputPath);
     });
   }

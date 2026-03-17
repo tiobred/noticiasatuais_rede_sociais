@@ -10,7 +10,10 @@ import { InstagramPublisher } from '../lib/social/instagram';
 async function main() {
     console.log('\n📸 Testando Instagram Graph API...\n');
 
-    const ig = new InstagramPublisher();
+    const ig = new InstagramPublisher(
+        process.env.IG_ACCESS_TOKEN || 'placeholder',
+        process.env.IG_USER_ID || 'placeholder'
+    );
 
     const testImage = 'https://via.placeholder.com/1080x1080/0a0f1e/10b981?text=Noticia+da+Hora+%F0%9F%93%8A';
     const caption = [
