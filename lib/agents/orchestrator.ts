@@ -114,9 +114,8 @@ export async function runPipeline(accountId: string): Promise<{
         const dbValue = configMap[channelKey];
         if (typeof dbValue === 'boolean') return dbValue;
         if (dbValue === 'true' || dbValue === true) return true;
-        if (dbValue === 'false' || dbValue === false) return false;
         
-        return process.env[channelKey] === 'true';
+        return false;
     };
 
     const isFeedEnabled = isChannelEnabled('CHANNEL_INSTAGRAM_FEED');
@@ -792,8 +791,13 @@ export async function runPipeline(accountId: string): Promise<{
             }
 
             // 3. YouTube Shorts - Viral Video
-            if (isYoutubeEnabled) {
-                console.log(`[orchestrator|${normalizedAccountId}] 📺 YouTube Shorts ativado. Preparando vídeos virais...`);
+            const hasExplicitShorts = allPendingToPublish.some(p => {
+                const targetChannels = (p.metadata as any)?.targetChannels;
+                return targetChannels && targetChannels.shorts === true;
+            });
+
+            if (isYoutubeEnabled || hasExplicitShorts) {
+                console.log(`[orchestrator|${normalizedAccountId}] 📺 YouTube Shorts ativo (isYoutubeEnabled: ${isYoutubeEnabled}, hasExplicitShorts: ${hasExplicitShorts}). Preparando vídeos virais...`);
                 try {
                     // Selecionar posts para YouTube: tanto notícias (analisadas) quanto originais (se forem vídeo)
                     // RESPEITANDO targetChannels
@@ -811,6 +815,15 @@ export async function runPipeline(accountId: string): Promise<{
                         if (isOriginal && !isVideo) {
                             console.log(`[orchestrator|${normalizedAccountId}] YT Candidate Debug: Post ${p.id} skipped - Original post must be a video`);
                             return false;
+                        }
+
+                        // --- REGRA DE NEGÓCIO ---
+                        // Se o canal estiver inativo na conta, somente permitimos se houver suporte explícito
+                        if (!isYoutubeEnabled) {
+                            if (!targetChannels || targetChannels.shorts !== true) {
+                                console.log(`[orchestrator|${normalizedAccountId}] YT Candidate Debug: Post ${p.id} skipped - Canal YouTube inativo na conta e post sem suporte explícito`);
+                                return false;
+                            }
                         }
                         
                         return true;
@@ -864,7 +877,7 @@ export async function runPipeline(accountId: string): Promise<{
                     console.error(`[orchestrator|${normalizedAccountId}] ❌ Erro crítico no bloco YouTube:`, ytErr.message);
                 }
             } else {
-                console.log(`[orchestrator|${normalizedAccountId}] ⏭️ Pulando YouTube Shorts (CHANNEL_YOUTUBE_SHORTS: ${configMap['CHANNEL_YOUTUBE_SHORTS']})`);
+                console.log(`[orchestrator|${normalizedAccountId}] ⏭️ Pulando YouTube Shorts (CHANNEL_YOUTUBE_SHORTS: ${isYoutubeEnabled}, hasExplicitShorts: ${hasExplicitShorts})`);
             }
 
         }

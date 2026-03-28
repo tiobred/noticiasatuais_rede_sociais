@@ -39,8 +39,8 @@ ENV NEXT_TELEMETRY_DISABLED=1
 RUN npx prisma generate
 
 # Compilar scripts (scheduler, etc)
-RUN npm install -g typescript tsconfig-paths
 RUN npx tsc --project tsconfig.scripts.json
+RUN npx tsc-alias --project tsconfig.scripts.json
 
 # Build da aplicação
 RUN npm run build
@@ -80,8 +80,9 @@ COPY --from=builder --chown=nextjs:nodejs /app/.next/static ./.next/static
 # Copiar scripts compilados para o runner
 COPY --from=builder --chown=nextjs:nodejs /app/.scripts-dist ./.scripts-dist
 COPY --from=builder --chown=nextjs:nodejs /app/tsconfig.scripts.json ./
-# O standalone não inclui node_modules, mas precisamos das deps de prod para rodar os scripts se usarmos node puro.
-# No entanto, o .next/standalone/node_modules existe! Podemos tentar usar o node_modules de lá.
+
+# Copiar explicitamente node_modules do builder para garantir dependências dos scripts discretos
+COPY --from=builder --chown=nextjs:nodejs /app/node_modules ./node_modules
 
 # Copiar public apenas se existir (usando wildcard)
 COPY --from=builder /app/public* ./public/

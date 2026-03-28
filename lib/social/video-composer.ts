@@ -22,6 +22,20 @@ export class VideoComposer {
   private resolveFfmpegPath(): string | null {
     if (this.ffmpegResolvedPath) return this.ffmpegResolvedPath;
 
+    // Em produção ou Linux, priorizar o FFmpeg do sistema (apt-get) para evitar limitações do ffmpeg-static (ex: drawtext)
+    if (process.env.NODE_ENV === 'production' || process.platform === 'linux') {
+      try {
+        const { execSync } = require('child_process');
+        execSync('ffmpeg -version');
+        console.log(`[video-composer] v3 - Usando FFmpeg do sistema PATH.`);
+        this.ffmpegResolvedPath = 'ffmpeg';
+        ffmpeg.setFfmpegPath('ffmpeg');
+        return 'ffmpeg';
+      } catch (e) {
+        console.log(`[video-composer] v3 - FFmpeg não encontrado no sistema PATH, tentando node_modules.`);
+      }
+    }
+
     let importedPath = ffmpegPath as any;
     if (importedPath && typeof importedPath === 'object' && importedPath.default) {
       importedPath = importedPath.default;

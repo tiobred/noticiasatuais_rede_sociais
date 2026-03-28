@@ -1,0 +1,524 @@
+[
+  {
+    "key": "SCRAPER_LIMIT_PER_SOURCE",
+    "value": 1,
+    "accountId": "global",
+    "updatedAt": "2026-03-06T23:53:19.413Z"
+  },
+  {
+    "key": "WHATSAPP_BATCH_DELAY",
+    "value": 60000,
+    "accountId": "global",
+    "updatedAt": "2026-03-06T23:53:19.615Z"
+  },
+  {
+    "key": "POSTING_TIMES",
+    "value": [
+      "08:00",
+      "13:00",
+      "20:00"
+    ],
+    "accountId": "global",
+    "updatedAt": "2026-03-06T23:53:19.730Z"
+  },
+  {
+    "key": "CHANNEL_INSTAGRAM_FEED",
+    "value": false,
+    "accountId": "global",
+    "updatedAt": "2026-03-06T23:53:19.838Z"
+  },
+  {
+    "key": "CHANNEL_INSTAGRAM_STORY",
+    "value": false,
+    "accountId": "global",
+    "updatedAt": "2026-03-06T23:53:19.949Z"
+  },
+  {
+    "key": "CHANNEL_LINKEDIN",
+    "value": false,
+    "accountId": "global",
+    "updatedAt": "2026-03-06T23:53:20.064Z"
+  },
+  {
+    "key": "CHANNEL_WHATSAPP",
+    "value": false,
+    "accountId": "global",
+    "updatedAt": "2026-03-06T23:53:20.186Z"
+  },
+  {
+    "key": "JOB_SCHEDULER",
+    "value": true,
+    "accountId": "global",
+    "updatedAt": "2026-03-06T23:53:20.302Z"
+  },
+  {
+    "key": "JOB_CLEANUP",
+    "value": true,
+    "accountId": "global",
+    "updatedAt": "2026-03-06T23:53:20.416Z"
+  },
+  {
+    "key": "ACTIVE_INSTAGRAM_ACCOUNTS",
+    "value": [
+      "principal",
+      "promo",
+      "Tiobred"
+    ],
+    "accountId": "global",
+    "updatedAt": "2026-03-06T23:53:20.523Z"
+  },
+  {
+    "key": "CHANNEL_LINKEDIN",
+    "value": false,
+    "accountId": "tiobred",
+    "updatedAt": "2026-03-10T23:26:20.422Z"
+  },
+  {
+    "key": "JOB_SCHEDULER",
+    "value": true,
+    "accountId": "tiobred",
+    "updatedAt": "2026-03-10T23:26:20.735Z"
+  },
+  {
+    "key": "JOB_CLEANUP",
+    "value": true,
+    "accountId": "tiobred",
+    "updatedAt": "2026-03-10T23:26:20.892Z"
+  },
+  {
+    "key": "ACTIVE_INSTAGRAM_ACCOUNTS",
+    "value": [
+      "Tiobred"
+    ],
+    "accountId": "tiobred",
+    "updatedAt": "2026-03-10T23:26:21.049Z"
+  },
+  {
+    "key": "CHANNEL_INSTAGRAM_REELS",
+    "value": false,
+    "accountId": "promo",
+    "updatedAt": "2026-03-25T18:40:17.242Z"
+  },
+  {
+    "key": "SCHEDULER_TRIGGERS",
+    "value": [
+      {
+        "id": "xlrheplby",
+        "type": "cron",
+        "value": "0 8,18 * * 1,3,5,6,0",
+        "minute": 0
+      },
+      {
+        "id": "w3mpekjbb",
+        "type": "days",
+        "value": "08:00",
+        "minute": 0
+      },
+      {
+        "id": "8kh78bl84",
+        "type": "days",
+        "value": "12:31",
+        "minute": 0
+      },
+      {
+        "id": "fwysav69j",
+        "type": "days",
+        "value": "18:00",
+        "minute": 0
+      },
+      {
+        "id": "buavyo1v9",
+        "type": "cron",
+        "value": "0 8,12,18 * * 1,3,5,6,0",
+        "minute": 0
+      }
+    ],
+    "accountId": "tiobred",
+    "updatedAt": "2026-03-24T20:55:30.874Z"
+  },
+  {
+    "key": "WHATSAPP_BATCH_DELAY",
+    "value": 60000,
+    "accountId": "promo",
+    "updatedAt": "2026-03-06T23:53:36.158Z"
+  },
+  {
+    "key": "primaryColor",
+    "value": "#1a1a1a",
+    "accountId": "promo",
+    "updatedAt": "2026-03-25T18:40:23.973Z"
+  },
+  {
+    "key": "postingTimes",
+    "value": {
+      "interval": 60
+    },
+    "accountId": "promo",
+    "updatedAt": "2026-03-25T18:40:28.458Z"
+  },
+  {
+    "key": "CHANNEL_LINKEDIN",
+    "value": false,
+    "accountId": "promo",
+    "updatedAt": "2026-03-06T23:53:36.542Z"
+  },
+  {
+    "key": "isActive",
+    "value": true,
+    "accountId": "tiobred",
+    "updatedAt": "2026-03-24T20:55:01.934Z"
+  },
+  {
+    "key": "JOB_SCHEDULER",
+    "value": true,
+    "accountId": "promo",
+    "updatedAt": "2026-03-06T23:53:36.729Z"
+  },
+  {
+    "key": "JOB_CLEANUP",
+    "value": true,
+    "accountId": "promo",
+    "updatedAt": "2026-03-06T23:53:36.823Z"
+  },
+  {
+    "key": "ACTIVE_INSTAGRAM_ACCOUNTS",
+    "value": [
+      "promo"
+    ],
+    "accountId": "promo",
+    "updatedAt": "2026-03-06T23:53:36.915Z"
+  },
+  {
+    "key": "SCHEDULER_TRIGGERS",
+    "value": [
+      {
+        "id": "xlrheplby",
+        "type": "cron",
+        "value": "0 8,18 * * 1,3,5,6,0",
+        "minute": 0
+      }
+    ],
+    "accountId": "promo",
+    "updatedAt": "2026-03-25T18:40:33.168Z"
+  },
+  {
+    "key": "DATA_SOURCES",
+    "value": [
+      {
+        "url": "https://search.cnbc.com/rs/search/combinedcms/view.xml?profile=12000000&id=10000664",
+        "name": "CNBC Finance"
+      },
+      {
+        "url": "http://feeds.marketwatch.com/marketwatch/topstories/",
+        "name": "MarketWatch"
+      },
+      {
+        "url": "https://finance.yahoo.com/news/rssindex",
+        "name": "Yahoo Finance"
+      }
+    ],
+    "accountId": "promo",
+    "updatedAt": "2026-03-25T18:40:25.093Z"
+  },
+  {
+    "key": "THEMES",
+    "value": "Focar em notícias sobre Inteligência Artificial, avanços tecnológicos e mercados financeiros/investimentos. Ao traduzir as notícias, mantenha um tom entusiasta, moderno e voltado para negócios. Explique de forma prática como a notícia impacta o investidor e o futuro da tecnologia. Evite jargões excessivos se não os explicar.",
+    "accountId": "promo",
+    "updatedAt": "2026-03-25T18:40:26.215Z"
+  },
+  {
+    "key": "schedulerEnabled",
+    "value": true,
+    "accountId": "tiobred",
+    "updatedAt": "2026-03-24T20:55:12.519Z"
+  },
+  {
+    "key": "IG_MONITOR_TARGETS",
+    "value": [
+      {
+        "channels": {
+          "feed": false,
+          "reels": false,
+          "story": true,
+          "shorts": false,
+          "whatsapp": false
+        },
+        "minLikes": 10,
+        "username": "promocaodehoje",
+        "minComments": 0,
+        "postOriginal": true
+      }
+    ],
+    "accountId": "promo",
+    "updatedAt": "2026-03-25T18:40:27.336Z"
+  },
+  {
+    "key": "SCHEDULER_TRIGGERS",
+    "value": [],
+    "accountId": "global",
+    "updatedAt": "2026-03-27T23:55:14.150Z"
+  },
+  {
+    "key": "CHANNEL_WHATSAPP",
+    "value": false,
+    "accountId": "promo",
+    "updatedAt": "2026-03-25T18:40:18.364Z"
+  },
+  {
+    "key": "postingTimes",
+    "value": {
+      "end": "20:00",
+      "interval": 10
+    },
+    "accountId": "tiobred",
+    "updatedAt": "2026-03-24T20:55:24.342Z"
+  },
+  {
+    "key": "layoutType",
+    "value": "large",
+    "accountId": "promo",
+    "updatedAt": "2026-03-07T01:13:08.719Z"
+  },
+  {
+    "key": "POSTING_TIMES",
+    "value": [
+      "08:00",
+      "13:00",
+      "21:00"
+    ],
+    "accountId": "promo",
+    "updatedAt": "2026-03-25T18:40:29.580Z"
+  },
+  {
+    "key": "SCRAPER_LIMIT_PER_SOURCE",
+    "value": 5,
+    "accountId": "tiobred",
+    "updatedAt": "2026-03-24T20:55:14.235Z"
+  },
+  {
+    "key": "POSTING_TIMES",
+    "value": [
+      "08:00",
+      "13:00",
+      "21:00"
+    ],
+    "accountId": "tiobred",
+    "updatedAt": "2026-03-24T20:55:25.997Z"
+  },
+  {
+    "key": "CHANNEL_YOUTUBE_SHORTS",
+    "value": false,
+    "accountId": "promo",
+    "updatedAt": "2026-03-25T18:40:19.484Z"
+  },
+  {
+    "key": "layoutType",
+    "value": "standard",
+    "accountId": "tiobred",
+    "updatedAt": "2026-03-10T23:26:19.305Z"
+  },
+  {
+    "key": "WHATSAPP_BATCH_DELAY",
+    "value": 60000,
+    "accountId": "tiobred",
+    "updatedAt": "2026-03-10T23:26:19.798Z"
+  },
+  {
+    "key": "imageStyle",
+    "value": "newspaper",
+    "accountId": "tiobred",
+    "updatedAt": "2026-03-24T20:55:15.998Z"
+  },
+  {
+    "key": "feed_layout",
+    "value": {
+      "fontSizeBody": 28,
+      "fontSizeTitle": 43
+    },
+    "accountId": "tiobred",
+    "updatedAt": "2026-03-24T20:55:27.670Z"
+  },
+  {
+    "key": "schedulerEnabled",
+    "value": false,
+    "accountId": "promo",
+    "updatedAt": "2026-03-25T18:40:20.607Z"
+  },
+  {
+    "key": "CHANNEL_INSTAGRAM_FEED",
+    "value": true,
+    "accountId": "tiobred",
+    "updatedAt": "2026-03-24T20:55:04.079Z"
+  },
+  {
+    "key": "story_layout",
+    "value": {
+      "fontSizeBody": 38,
+      "fontSizeTitle": 48
+    },
+    "accountId": "tiobred",
+    "updatedAt": "2026-03-24T20:55:29.284Z"
+  },
+  {
+    "key": "feed_layout",
+    "value": {
+      "fontSizeBody": 28,
+      "fontSizeTitle": 43
+    },
+    "accountId": "promo",
+    "updatedAt": "2026-03-25T18:40:30.925Z"
+  },
+  {
+    "key": "isActive",
+    "value": true,
+    "accountId": "promo",
+    "updatedAt": "2026-03-25T18:40:12.506Z"
+  },
+  {
+    "key": "SCRAPER_LIMIT_PER_SOURCE",
+    "value": 4,
+    "accountId": "promo",
+    "updatedAt": "2026-03-25T18:40:21.729Z"
+  },
+  {
+    "key": "primaryColor",
+    "value": "#1a1a1a",
+    "accountId": "tiobred",
+    "updatedAt": "2026-03-24T20:55:17.569Z"
+  },
+  {
+    "key": "story_layout",
+    "value": {
+      "fontSizeBody": 32,
+      "fontSizeTitle": 53
+    },
+    "accountId": "promo",
+    "updatedAt": "2026-03-25T18:40:32.046Z"
+  },
+  {
+    "key": "CHANNEL_INSTAGRAM_STORY",
+    "value": true,
+    "accountId": "tiobred",
+    "updatedAt": "2026-03-24T20:55:05.816Z"
+  },
+  {
+    "key": "CHANNEL_INSTAGRAM_REELS",
+    "value": true,
+    "accountId": "tiobred",
+    "updatedAt": "2026-03-24T20:55:07.544Z"
+  },
+  {
+    "key": "DATA_SOURCES",
+    "value": [],
+    "accountId": "tiobred",
+    "updatedAt": "2026-03-24T20:55:19.554Z"
+  },
+  {
+    "key": "CHANNEL_WHATSAPP",
+    "value": false,
+    "accountId": "tiobred",
+    "updatedAt": "2026-03-24T20:55:09.226Z"
+  },
+  {
+    "key": "CHANNEL_YOUTUBE_SHORTS",
+    "value": false,
+    "accountId": "tiobred",
+    "updatedAt": "2026-03-24T20:55:10.888Z"
+  },
+  {
+    "key": "THEMES",
+    "value": "Focar em notícias sobre Inteligência Artificial, avanços tecnológicos e mercados financeiros/investimentos. Ao traduzir as notícias, mantenha um tom entusiasta, moderno e voltado para negócios. Explique de forma prática como a notícia impacta o investidor e o futuro da tecnologia. Evite jargões excessivos se não os explicar.",
+    "accountId": "tiobred",
+    "updatedAt": "2026-03-24T20:55:21.211Z"
+  },
+  {
+    "key": "CHANNEL_INSTAGRAM_FEED",
+    "value": false,
+    "accountId": "promo",
+    "updatedAt": "2026-03-25T18:40:15.000Z"
+  },
+  {
+    "key": "CHANNEL_INSTAGRAM_STORY",
+    "value": true,
+    "accountId": "promo",
+    "updatedAt": "2026-03-25T18:40:16.122Z"
+  },
+  {
+    "key": "imageStyle",
+    "value": "newspaper",
+    "accountId": "promo",
+    "updatedAt": "2026-03-25T18:40:22.850Z"
+  },
+  {
+    "key": "IG_MONITOR_TARGETS",
+    "value": [
+      {
+        "channels": {
+          "feed": false,
+          "reels": true,
+          "story": true,
+          "shorts": true,
+          "whatsapp": false
+        },
+        "minLikes": 5000,
+        "username": "jornadatop",
+        "minComments": 100,
+        "postOriginal": true
+      },
+      {
+        "channels": {
+          "feed": false,
+          "reels": false,
+          "story": true,
+          "shorts": false,
+          "whatsapp": false
+        },
+        "minLikes": 500,
+        "username": "promocaodehoje",
+        "minComments": 50,
+        "postOriginal": true
+      },
+      {
+        "channels": {
+          "feed": true,
+          "reels": true,
+          "story": true,
+          "shorts": true,
+          "whatsapp": false
+        },
+        "minLikes": 1000,
+        "username": "isabela.anholett",
+        "minComments": 100,
+        "postOriginal": true
+      },
+      {
+        "channels": {
+          "feed": false,
+          "reels": false,
+          "story": true,
+          "shorts": true,
+          "whatsapp": false
+        },
+        "minLikes": 1000,
+        "username": "tecnoblog",
+        "minComments": 100,
+        "postOriginal": true
+      },
+      {
+        "channels": {
+          "feed": false,
+          "reels": false,
+          "story": true,
+          "shorts": false,
+          "whatsapp": false
+        },
+        "minLikes": 5000,
+        "username": "andre_lug",
+        "minComments": 100,
+        "postOriginal": true
+      }
+    ],
+    "accountId": "tiobred",
+    "updatedAt": "2026-03-24T20:55:22.780Z"
+  }
+]
