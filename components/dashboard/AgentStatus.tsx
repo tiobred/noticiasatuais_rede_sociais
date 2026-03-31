@@ -34,11 +34,13 @@ export function AgentStatus({ runs }: AgentStatusProps) {
                 <span className="text-xs text-white/30 font-mono">{runs.length} runs</span>
             </div>
 
-            <div className="divide-y divide-white/5">
+            <div className="divide-y divide-white/5 max-h-[600px] overflow-y-auto scrollable">
                 {runs.length === 0 ? (
-                    <div className="px-5 py-8 text-center">
-                        <Clock className="w-6 h-6 text-white/20 mx-auto mb-2" />
-                        <p className="text-sm text-white/30">Nenhum run ainda</p>
+                    <div className="px-5 py-12 text-center animate-fade-in">
+                        <div className="w-10 h-10 rounded-xl bg-surface-800 border border-white/5 flex items-center justify-center mx-auto mb-3">
+                            <Clock className="w-5 h-5 text-white/20" />
+                        </div>
+                        <p className="text-sm font-medium text-white/40">Nenhuma execução registrada</p>
                     </div>
                 ) : (
                     runs.map((run) => {

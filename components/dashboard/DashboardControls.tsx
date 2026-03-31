@@ -55,10 +55,10 @@ export function DashboardControls({ accounts }: DashboardControlsProps) {
     };
 
     return (
-        <div className="flex flex-col md:flex-row gap-4 items-end md:items-center justify-between bg-white/5 p-4 rounded-xl border border-white/10">
+        <div className="flex flex-col md:flex-row gap-4 items-end md:items-center justify-between glass p-4 rounded-xl transition-all duration-300 hover:border-white/10">
             <div className="flex flex-wrap gap-4 items-center">
-                <div className="flex items-center gap-2 text-white/40 text-xs font-medium uppercase tracking-wider">
-                    <Filter className="w-3.5 h-3.5" />
+                <div className="flex items-center gap-2 text-white/30 text-xs font-semibold uppercase tracking-wider">
+                    <Filter className="w-3.5 h-3.5 text-brand-400" />
                     Filtros
                 </div>
 

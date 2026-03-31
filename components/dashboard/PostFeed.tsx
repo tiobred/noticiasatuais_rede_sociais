@@ -108,12 +108,14 @@ export function PostFeed({ posts }: PostFeedProps) {
                 </div>
             </div>
 
-            <div className="divide-y divide-white/5 max-h-[600px] overflow-y-auto">
+            <div className="divide-y divide-white/5 max-h-[600px] overflow-y-auto scrollable">
                 {posts.length === 0 ? (
-                    <div className="px-5 py-12 text-center">
-                        <Clock className="w-8 h-8 text-white/10 mx-auto mb-3" />
-                        <p className="text-sm text-white/30">Nenhum post ainda</p>
-                        <p className="text-xs text-white/20 mt-1">Execute o pipeline para começar</p>
+                    <div className="px-5 py-16 text-center animate-fade-in">
+                        <div className="w-12 h-12 rounded-2xl bg-surface-800 border border-white/5 flex items-center justify-center mx-auto mb-4">
+                            <Clock className="w-6 h-6 text-white/20" />
+                        </div>
+                        <p className="text-sm font-medium text-white/50">Nenhum post publicado ainda</p>
+                        <p className="text-xs text-white/30 mt-1.5">Execute o pipeline para começar a gerar conteúdo</p>
                     </div>
                 ) : (
                     posts.map((post) => (

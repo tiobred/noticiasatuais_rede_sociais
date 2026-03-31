@@ -69,7 +69,9 @@ export async function runPipeline(accountId: string): Promise<{
         'story_layout',
         'reels_layout',
         'CHANNEL_YOUTUBE_SHORTS',
-        'NICHE'
+        'NICHE',
+        'PUBLISH_NEWS_ENABLED',
+        'PUBLISH_ORIGINALS_ENABLED'
     ];
     const configMap = await getMergedConfigs(normalizedAccountId, configKeys);
 
@@ -124,10 +126,21 @@ export async function runPipeline(accountId: string): Promise<{
     const isWhatsappEnabled = isChannelEnabled('CHANNEL_WHATSAPP');
     const isYoutubeEnabled = isChannelEnabled('CHANNEL_YOUTUBE_SHORTS');
 
+    // Controle granular de tipo de conteúdo
+    // default true (se nunca foi configurado, publica tudo)
+    const publishNewsEnabled = configMap['PUBLISH_NEWS_ENABLED'] !== false && configMap['PUBLISH_NEWS_ENABLED'] !== 'false';
+    const publishOriginalsEnabled = configMap['PUBLISH_ORIGINALS_ENABLED'] !== false && configMap['PUBLISH_ORIGINALS_ENABLED'] !== 'false';
+
     console.log(`[orchestrator|${normalizedAccountId}] Channel status: Feed=${isFeedEnabled}, Story=${isStoryEnabled}, Reels=${isReelsEnabled}, YT=${isYoutubeEnabled}, WA=${isWhatsappEnabled}`);
+    console.log(`[orchestrator|${normalizedAccountId}] 📊 Conteúdo: Notícias=${publishNewsEnabled}, Originais=${publishOriginalsEnabled}`);
 
     if (!isFeedEnabled && !isStoryEnabled && !isReelsEnabled && !isWhatsappEnabled && !isYoutubeEnabled) {
         console.log(`[orchestrator|${normalizedAccountId}] Nenhum canal de publicação ativo (Feed, Story, Reels, WhatsApp, YouTube). Cancelando pipeline.`);
+        return { postsFound: 0, postsNew: 0, postsPublished: 0 };
+    }
+
+    if (!publishNewsEnabled && !publishOriginalsEnabled) {
+        console.log(`[orchestrator|${normalizedAccountId}] ⛔ Tanto notícias quanto originais estão desativados. Cancelando pipeline.`);
         return { postsFound: 0, postsNew: 0, postsPublished: 0 };
     }
 
@@ -402,14 +415,28 @@ export async function runPipeline(accountId: string): Promise<{
             return true;
         });
 
-        console.log(`[orchestrator|${normalizedAccountId}] Debug: allPendingToPublish.length = ${allPendingToPublish.length}`);
+        console.log(`[orchestrator|${normalizedAccountId}] Debug: total=${allPendingToPublish.length}`);
 
         if (allPendingToPublish.length === 0) {
             console.log(`[orchestrator|${normalizedAccountId}] Etapa 3/3: Nenhum post pronto para publicação (status=PROCESSED).`);
         } else {
-            const originalCount = allPendingToPublish.filter(p => (p.metadata as any)?.postOriginal === true).length;
-            const newsCount = allPendingToPublish.length - originalCount;
-            console.log(`\n[orchestrator|${normalizedAccountId}] Etapa 3/3: Publicando ${allPendingToPublish.length} itens prontos (${originalCount} originais, ${newsCount} notícias)...`);
+            // Filtrar por tipo de conteúdo com base nos toggles
+            const postsToPublish = allPendingToPublish.filter(p => {
+                const isOriginal = (p.metadata as any)?.postOriginal === true;
+                if (isOriginal && !publishOriginalsEnabled) {
+                    console.log(`[orchestrator|${normalizedAccountId}] ⏭️ Pulando repost original "${p.title}" (PUBLISH_ORIGINALS_ENABLED=false).`);
+                    return false;
+                }
+                if (!isOriginal && !publishNewsEnabled) {
+                    console.log(`[orchestrator|${normalizedAccountId}] ⏭️ Pulando notícia "${p.title}" (PUBLISH_NEWS_ENABLED=false).`);
+                    return false;
+                }
+                return true;
+            });
+
+            const originalCount = postsToPublish.filter(p => (p.metadata as any)?.postOriginal === true).length;
+            const newsCount = postsToPublish.length - originalCount;
+            console.log(`\n[orchestrator|${normalizedAccountId}] Etapa 3/3: Publicando ${postsToPublish.length} itens prontos (${originalCount} originais, ${newsCount} notícias)...`);
 
             // 1a. Instagram Feed & Reels (Original and News)
             if (isFeedEnabled || isReelsEnabled) {
@@ -418,7 +445,7 @@ export async function runPipeline(accountId: string): Promise<{
                     const igPublisher = new InstagramPublisher(targetAccount.accessToken, targetAccount.userId);
                     const carouselData = [];
                     const composedSlideItems: { imageUrl: string; postId: string }[] = [];
-                    for (const c of allPendingToPublish) {
+                    for (const c of postsToPublish) {
                         const isOriginal = (c.metadata as any)?.postOriginal === true;
                         const originalUsername = (c.metadata as any)?.originalUsername;
                         const mediaType = (c.metadata as any)?.mediaType;
@@ -625,19 +652,19 @@ export async function runPipeline(accountId: string): Promise<{
 
             // 1b. Instagram Story — formato 9:16 vertical
             if (isStoryEnabled) {
-                console.log(`[orchestrator|${normalizedAccountId}] 📱 Publicando Stories no Instagram (${allPendingToPublish.length} itens)...`);
+                console.log(`[orchestrator|${normalizedAccountId}] 📱 Publicando Stories no Instagram (${postsToPublish.length} itens)...`);
                 try {
                     const igPublisher = new InstagramPublisher(targetAccount.accessToken, targetAccount.userId);
 
                     // Seleção diversa: pegar até X Reels originais e até Y News analisadas
                     // RESPEITANDO targetChannels
-                    const availableOriginals = allPendingToPublish.filter(p => {
+                    const availableOriginals = postsToPublish.filter(p => {
                         const isOriginal = (p.metadata as any)?.postOriginal === true;
                         if (!isOriginal) return false;
                         const targetChannels = (p.metadata as any)?.targetChannels;
                         return !targetChannels || targetChannels.story !== false;
                     });
-                    const availableNews = allPendingToPublish.filter(p => {
+                    const availableNews = postsToPublish.filter(p => {
                         const isOriginal = (p.metadata as any)?.postOriginal === true;
                         if (isOriginal) return false;
                         const targetChannels = (p.metadata as any)?.targetChannels;
@@ -748,7 +775,7 @@ export async function runPipeline(accountId: string): Promise<{
             }
 
             // 2. WhatsApp - Optional
-            let allowedWhatsappPosts = allPendingToPublish.filter(p => {
+            let allowedWhatsappPosts = postsToPublish.filter(p => {
                 const targetChannels = (p.metadata as any)?.targetChannels;
                 return !targetChannels || targetChannels.whatsapp !== false;
             });
@@ -791,7 +818,7 @@ export async function runPipeline(accountId: string): Promise<{
             }
 
             // 3. YouTube Shorts - Viral Video
-            const hasExplicitShorts = allPendingToPublish.some(p => {
+            const hasExplicitShorts = postsToPublish.some(p => {
                 const targetChannels = (p.metadata as any)?.targetChannels;
                 return targetChannels && targetChannels.shorts === true;
             });
@@ -801,7 +828,7 @@ export async function runPipeline(accountId: string): Promise<{
                 try {
                     // Selecionar posts para YouTube: tanto notícias (analisadas) quanto originais (se forem vídeo)
                     // RESPEITANDO targetChannels
-                    const youtubeCandidates = allPendingToPublish.filter(p => {
+                    const youtubeCandidates = postsToPublish.filter(p => {
                         const targetChannels = (p.metadata as any)?.targetChannels;
                         const isOriginal = (p.metadata as any)?.postOriginal === true;
                         const mediaType = (p.metadata as any)?.mediaType;

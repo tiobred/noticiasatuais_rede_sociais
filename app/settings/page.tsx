@@ -23,6 +23,9 @@ interface AccountConfig {
     CHANNEL_WHATSAPP?: boolean;
     CHANNEL_INSTAGRAM_REELS?: boolean;
     CHANNEL_YOUTUBE_SHORTS?: boolean;
+    // Controle granular de publicação
+    PUBLISH_NEWS_ENABLED?: boolean;         // Publicar notícias scraped
+    PUBLISH_ORIGINALS_ENABLED?: boolean;    // Publicar posts originais (repost IG)
     SCRAPER_LIMIT_PER_SOURCE?: number;
     imageStyle?: string;
     primaryColor?: string;
@@ -416,6 +419,60 @@ export default function SettingsPage() {
                                                     checked={settings.CHANNEL_YOUTUBE_SHORTS === true}
                                                     onCheckedChange={(checked: boolean) => updateSetting('CHANNEL_YOUTUBE_SHORTS', checked)}
                                                 />
+                                            </div>
+                                        </CardContent>
+                                    </Card>
+
+                                    {/* Controle de Publicação */}
+                                    <Card className="md:col-span-2 border-amber-200 dark:border-amber-900/40">
+                                        <CardHeader className="bg-amber-50/50 dark:bg-amber-900/10">
+                                            <CardTitle>⚡ Controle de Publicação de Conteúdo</CardTitle>
+                                            <CardDescription>
+                                                Defina <strong>o que</strong> o robô deve publicar para esta conta. Canais inativos acima não receberão nada independente dessas opções.
+                                            </CardDescription>
+                                        </CardHeader>
+                                        <CardContent className="space-y-4 pt-5">
+                                            {/* Status visual dos canais */}
+                                            <div className="flex flex-wrap gap-2 mb-2">
+                                                {[
+                                                    { key: 'CHANNEL_INSTAGRAM_FEED', label: '📸 Feed', color: 'pink' },
+                                                    { key: 'CHANNEL_INSTAGRAM_STORY', label: '🎞 Story', color: 'purple' },
+                                                    { key: 'CHANNEL_INSTAGRAM_REELS', label: '🎬 Reels', color: 'red' },
+                                                    { key: 'CHANNEL_WHATSAPP', label: '💬 WhatsApp', color: 'green' },
+                                                    { key: 'CHANNEL_YOUTUBE_SHORTS', label: '▶️ Shorts', color: 'red' },
+                                                ].map(ch => {
+                                                    const active = settings[ch.key] === true;
+                                                    return (
+                                                        <span key={ch.key} className={`px-3 py-1 rounded-full text-xs font-bold border ${active ? 'bg-green-50 border-green-300 text-green-800 dark:bg-green-900/20 dark:border-green-700 dark:text-green-300' : 'bg-gray-100 border-gray-300 text-gray-400 dark:bg-gray-800 dark:border-gray-700 dark:text-gray-500'}`}>
+                                                            {active ? '✅' : '⛔'} {ch.label}
+                                                        </span>
+                                                    );
+                                                })}
+                                            </div>
+                                            <p className="text-xs text-amber-700 dark:text-amber-400 bg-amber-50 dark:bg-amber-900/20 border border-amber-200 dark:border-amber-800 rounded-md px-3 py-2">
+                                                ⚠️ Para evitar publicações indesejadas, desative o tipo de conteúdo que não deseja publicar abaixo.
+                                            </p>
+                                            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 pt-2">
+                                                <div className="flex items-center justify-between p-4 rounded-lg border border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-gray-800/50">
+                                                    <div>
+                                                        <Label className="mb-0 text-base font-semibold">📰 Publicar Notícias</Label>
+                                                        <p className="text-xs text-gray-500 mt-0.5">Posts gerados pelo scraper de RSS/feeds</p>
+                                                    </div>
+                                                    <Switch
+                                                        checked={settings.PUBLISH_NEWS_ENABLED !== false}
+                                                        onCheckedChange={(checked: boolean) => updateSetting('PUBLISH_NEWS_ENABLED', checked)}
+                                                    />
+                                                </div>
+                                                <div className="flex items-center justify-between p-4 rounded-lg border border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-gray-800/50">
+                                                    <div>
+                                                        <Label className="mb-0 text-base font-semibold">🔁 Publicar Originais (Repost)</Label>
+                                                        <p className="text-xs text-gray-500 mt-0.5">Posts monitorados de outras contas IG</p>
+                                                    </div>
+                                                    <Switch
+                                                        checked={settings.PUBLISH_ORIGINALS_ENABLED !== false}
+                                                        onCheckedChange={(checked: boolean) => updateSetting('PUBLISH_ORIGINALS_ENABLED', checked)}
+                                                    />
+                                                </div>
                                             </div>
                                         </CardContent>
                                     </Card>

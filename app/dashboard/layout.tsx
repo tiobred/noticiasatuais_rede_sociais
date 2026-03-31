@@ -9,9 +9,15 @@ export const metadata: Metadata = {
 export default function DashboardLayout({ children }: { children: React.ReactNode }) {
     return (
         <SidebarProvider>
-            <div className="flex min-h-screen bg-surface-900">
+            <div className="flex min-h-dvh bg-surface-900">
                 <Sidebar />
-                <main className="flex-1 md:ml-60 flex flex-col min-h-screen w-full transition-all duration-300">
+                {/* Main content shifts based on sidebar width; uses CSS var approach */}
+                <main
+                    className="flex-1 flex flex-col min-h-dvh w-full
+                                transition-all duration-300
+                                md:ml-60"
+                    style={{ minWidth: 0 }}
+                >
                     {children}
                 </main>
             </div>

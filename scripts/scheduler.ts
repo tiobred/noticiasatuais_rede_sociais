@@ -156,8 +156,9 @@ async function startScheduler() {
                     let shouldRunNow = false;
                     let matchedTrigger: any = null;
                     
-                    // Agora o `getMergedConfigs` já retorna os triggers concatenados corretamente
-                    const triggers = configMap['SCHEDULER_TRIGGERS'] || [];
+                    // Sempre carregar os triggers frescos do banco para evitar ghost triggers
+                    const rawTriggers = configMap['SCHEDULER_TRIGGERS'];
+                    const triggers: any[] = Array.isArray(rawTriggers) ? rawTriggers : [];
 
                     if (triggers.length > 0) {
                         try {
@@ -169,9 +170,17 @@ async function startScheduler() {
                                     match = (mins > 0 && brM % mins === 0);
                                 } else if (trigger.type === 'hours') {
                                     const hrs = parseInt(trigger.value);
-                                    match = (hrs > 0 && brH % hrs === 0 && brM === 0);
+                                    match = (hrs > 0 && brH % hrs === 0 && brM === (trigger.minute ?? 0));
                                 } else if (trigger.type === 'days') {
                                     match = (trigger.value === brTime);
+                                } else if (trigger.type === 'weekly') {
+                                    // Tipo semanal: verifica dias da semana (0=Dom..6=Sáb) e horário
+                                    const nowBr = new Date(now.toLocaleString('en-US', { timeZone: 'America/Sao_Paulo' }));
+                                    const dayOfWeek = nowBr.getDay(); // 0=Dom, 1=Seg...
+                                    const days: number[] = Array.isArray(trigger.days) ? trigger.days : [];
+                                    const triggerTime = trigger.time || trigger.value || '00:00';
+                                    match = days.includes(dayOfWeek) && (triggerTime === brTime);
+                                    console.log(`  [${account.id}] weekly check: dayOfWeek=${dayOfWeek} in [${days}]=${days.includes(dayOfWeek)}, time=${triggerTime}===${brTime} -> ${match}`);
                                 } else if (trigger.type === 'cron') {
                                     match = matchesCron(trigger.value, now);
                                 }

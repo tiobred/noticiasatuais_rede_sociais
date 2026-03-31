@@ -34,6 +34,8 @@ export async function GET(req: Request) {
         // Caso default: retorna todas as chaves relevantes para a UI
         const relevantKeys = [
             'isActive',
+            'PUBLISH_NEWS_ENABLED',
+            'PUBLISH_ORIGINALS_ENABLED',
             'SCRAPER_LIMIT_PER_SOURCE',
             'DATA_SOURCES',
             'THEMES',
