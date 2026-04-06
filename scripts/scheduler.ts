@@ -93,14 +93,12 @@ async function startScheduler() {
         
         while (true) {
             const now = new Date();
-            const brTime = new Intl.DateTimeFormat('pt-BR', {
-                hour: '2-digit',
-                minute: '2-digit',
-                timeZone: 'America/Sao_Paulo',
-                hour12: false
-            }).format(now).replace(/[^0-9:]/g, ''); 
 
-            const [brH, brM] = brTime.split(':').map(Number);
+            // Calcular hora/minuto BR de forma determinística (evita variação de locale do Intl.DateTimeFormat)
+            const nowBrRef = new Date(now.toLocaleString('en-US', { timeZone: 'America/Sao_Paulo' }));
+            const brH = nowBrRef.getHours();
+            const brM = nowBrRef.getMinutes();
+            const brTime = `${String(brH).padStart(2, '0')}:${String(brM).padStart(2, '0')}`;
             
             console.log(`\n[${now.toLocaleTimeString()}] 🕒 Check: ${brTime} BR (${allAccounts.length} contas)`);
 
@@ -175,8 +173,8 @@ async function startScheduler() {
                                     match = (trigger.value === brTime);
                                 } else if (trigger.type === 'weekly') {
                                     // Tipo semanal: verifica dias da semana (0=Dom..6=Sáb) e horário
-                                    const nowBr = new Date(now.toLocaleString('en-US', { timeZone: 'America/Sao_Paulo' }));
-                                    const dayOfWeek = nowBr.getDay(); // 0=Dom, 1=Seg...
+                                    // nowBrRef já está calculado no início do loop (hora BR)
+                                    const dayOfWeek = nowBrRef.getDay(); // 0=Dom, 1=Seg...
                                     const days: number[] = Array.isArray(trigger.days) ? trigger.days : [];
                                     const triggerTime = trigger.time || trigger.value || '00:00';
                                     match = days.includes(dayOfWeek) && (triggerTime === brTime);
