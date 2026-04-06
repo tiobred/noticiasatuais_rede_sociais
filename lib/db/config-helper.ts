@@ -36,7 +36,15 @@ export async function getMergedConfigs(rawAccountId: string, keys: string[]) {
             // Deduplicate to clean up existing DB noise
             const seen = new Set();
             merged[key] = combined.filter(t => {
-                const content = JSON.stringify({ type: t.type, value: t.value, minute: t.minute, hour: t.hour });
+                // Ensure all relevant fields are checked for uniqueness, especially for 'weekly' and 'days' type
+                const content = JSON.stringify({ 
+                    type: t.type, 
+                    value: t.value, 
+                    minute: t.minute, 
+                    hour: t.hour,
+                    time: t.time,
+                    days: t.days ? t.days.sort().join(',') : undefined
+                });
                 if (seen.has(content)) return false;
                 seen.add(content);
                 return true;

@@ -213,15 +213,26 @@ export async function runPipeline(accountId: string): Promise<{
 
     try {
         // ─── ETAPA 1: Scraping ───────────────────────────────
-        await scraper.init();
-        console.log(`[orchestrator|${normalizedAccountId}] Etapa 1/3: Scraping (Limit: ${scraperLimit})...`);
-        const allItems = await scraper.scrape();
+        let allItems: any[] = [];
 
-        console.log(`[orchestrator|${normalizedAccountId}] Verificando alvos do Instagram...`);
-        const igItems = await instagramScraper.run(normalizedAccountId, igTargets, allAccounts);
+        if (publishNewsEnabled) {
+            await scraper.init();
+            console.log(`[orchestrator|${normalizedAccountId}] Etapa 1/3: Scraping (Limit: ${scraperLimit})...`);
+            const newsItems = await scraper.scrape();
+            allItems.push(...newsItems);
+            await scraper.close();
+        } else {
+            console.log(`[orchestrator|${normalizedAccountId}] ⏭️ Pulando Web Scraping de Notícias (PUBLISH_NEWS_ENABLED=false).`);
+        }
 
-        // Priorizar itens do Instagram (adicionar no início)
-        allItems.unshift(...igItems);
+        if (publishOriginalsEnabled) {
+            console.log(`[orchestrator|${normalizedAccountId}] Verificando alvos do Instagram (Originais)...`);
+            const igItems = await instagramScraper.run(normalizedAccountId, igTargets, allAccounts);
+            // Priorizar itens do Instagram (adicionar no início)
+            allItems.unshift(...igItems);
+        } else {
+            console.log(`[orchestrator|${normalizedAccountId}] ⏭️ Pulando Busca de Originais do Instagram (PUBLISH_ORIGINALS_ENABLED=false).`);
+        }
 
         postsFound = allItems.length;
 
@@ -758,6 +769,25 @@ export async function runPipeline(accountId: string): Promise<{
 
                         } catch (itemErr: any) {
                             console.error(`[orchestrator|${normalizedAccountId}] ❌ Erro no item ${i + 1} do Story:`, itemErr.message);
+                            if (itemErr.response?.data) console.error(JSON.stringify(itemErr.response.data));
+                            
+                            // Registrar falha no banco para não reprocessar infinitamente e avisar no Audit Log
+                            await prisma.socialPublication.create({
+                                data: {
+                                    postId: item.id,
+                                    accountId: normalizedAccountId,
+                                    channel: 'INSTAGRAM_STORY' as any,
+                                    status: 'FAILED',
+                                    error: itemErr.message || 'Erro desconhecido'
+                                }
+                            }).catch(() => { });
+                            
+                            await prisma.auditLog.create({
+                                data: {
+                                    action: 'PUBLISH_STORY_FAILED',
+                                    details: { accountId: normalizedAccountId, postId: item.id, error: itemErr.message, response: itemErr.response?.data }
+                                }
+                            }).catch(() => {});
                         }
                     }
 
