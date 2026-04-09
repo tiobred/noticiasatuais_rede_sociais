@@ -55,78 +55,85 @@ export function DashboardControls({ accounts }: DashboardControlsProps) {
     };
 
     return (
-        <div className="flex flex-col md:flex-row gap-4 items-end md:items-center justify-between glass p-4 rounded-xl transition-all duration-300 hover:border-white/10">
-            <div className="flex flex-wrap gap-4 items-center">
-                <div className="flex items-center gap-2 text-white/30 text-xs font-semibold uppercase tracking-wider">
-                    <Filter className="w-3.5 h-3.5 text-brand-400" />
-                    Filtros
+        <div className="flex flex-col xl:flex-row gap-6 items-start xl:items-center justify-between card animate-fade-in !py-6 !px-8 border-border-strong bg-bg-surface/50">
+            <div className="flex flex-wrap gap-x-8 gap-y-4 items-center">
+                <div className="flex items-center gap-3 text-text-primary text-[10px] font-black uppercase tracking-[0.2em] opacity-80">
+                    <Filter className="w-5 h-5 text-purple-400" />
+                    Central de Filtros
                 </div>
 
                 {/* Status Filter */}
-                <select
-                    onChange={(e) => updateFilter('status', e.target.value)}
-                    value={searchParams.get('status') || ''}
-                    className="bg-surface-800 border border-white/10 rounded-lg px-3 py-1.5 text-sm text-white/70 outline-none focus:border-brand-500/50 transition-colors"
-                >
-                    <option value="">Todos os Status</option>
-                    <option value="PUBLISHED">Publicado</option>
-                    <option value="PROCESSED">Processado</option>
-                    <option value="FAILED">Falhou</option>
-                </select>
+                <div className="flex flex-col gap-1.5">
+                   <label className="text-[9px] font-black text-text-muted uppercase tracking-widest ml-1">Status</label>
+                   <select
+                        onChange={(e) => updateFilter('status', e.target.value)}
+                        value={searchParams.get('status') || ''}
+                        className="bg-bg-elevated border border-border-subtle rounded-xl px-4 py-2 text-sm text-text-primary outline-none focus:border-purple-500/50 transition-all hover:border-purple-500/30 font-bold"
+                    >
+                        <option value="">Status: Todos</option>
+                        <option value="PUBLISHED">Publicado</option>
+                        <option value="PROCESSED">Processado</option>
+                        <option value="FAILED">Falhou</option>
+                    </select>
+                </div>
 
                 {/* Account Filter */}
-                <select
-                    onChange={(e) => updateFilter('accountId', e.target.value)}
-                    value={searchParams.get('accountId') || ''}
-                    className="bg-surface-800 border border-white/10 rounded-lg px-3 py-1.5 text-sm text-white/70 outline-none focus:border-brand-500/50 transition-colors"
-                >
-                    <option value="">Todas as Contas</option>
-                    {accounts.map(acc => (
-                        <option key={acc.id} value={acc.id}>{acc.name}</option>
-                    ))}
-                </select>
+                <div className="flex flex-col gap-1.5">
+                   <label className="text-[9px] font-black text-text-muted uppercase tracking-widest ml-1">Contas</label>
+                   <select
+                        onChange={(e) => updateFilter('accountId', e.target.value)}
+                        value={searchParams.get('accountId') || ''}
+                        className="bg-bg-elevated border border-border-subtle rounded-xl px-4 py-2 text-sm text-text-primary outline-none focus:border-purple-500/50 transition-all hover:border-purple-500/30 font-bold"
+                    >
+                        <option value="">Contas: Todas</option>
+                        {accounts.map(acc => (
+                            <option key={acc.id} value={acc.id}>{acc.name}</option>
+                        ))}
+                    </select>
+                </div>
 
                 {/* Channel Filter */}
-                <select
-                    onChange={(e) => updateFilter('channel', e.target.value)}
-                    value={searchParams.get('channel') || ''}
-                    className="bg-surface-800 border border-white/10 rounded-lg px-3 py-1.5 text-sm text-white/70 outline-none focus:border-brand-500/50 transition-colors"
-                >
-                    <option value="">Todos os Canais</option>
-                    <option value="INSTAGRAM_FEED">Instagram Feed</option>
-                    <option value="INSTAGRAM_STORY">Instagram Story</option>
-                    <option value="LINKEDIN">LinkedIn</option>
-                    <option value="WHATSAPP">WhatsApp</option>
-                </select>
+                <div className="flex flex-col gap-1.5">
+                   <label className="text-[9px] font-black text-text-muted uppercase tracking-widest ml-1">Canais</label>
+                   <select
+                        onChange={(e) => updateFilter('channel', e.target.value)}
+                        value={searchParams.get('channel') || ''}
+                        className="bg-bg-elevated border border-border-subtle rounded-xl px-4 py-2 text-sm text-text-primary outline-none focus:border-purple-500/50 transition-all hover:border-purple-500/30 font-bold"
+                    >
+                        <option value="">Canais: Todos</option>
+                        <option value="INSTAGRAM_FEED">Instagram Feed</option>
+                        <option value="INSTAGRAM_STORY">Instagram Story</option>
+                        <option value="LINKEDIN">LinkedIn</option>
+                        <option value="WHATSAPP">WhatsApp</option>
+                    </select>
+                </div>
 
                 {(searchParams.get('status') || searchParams.get('accountId') || searchParams.get('channel')) && (
                     <button
                         onClick={() => router.push('?')}
-                        className="text-xs text-white/30 hover:text-brand-400 flex items-center gap-1 transition-colors"
+                        className="mt-5 btn btn-secondary !py-2 !px-3 !rounded-xl !text-[10px] font-black uppercase tracking-widest flex items-center gap-2"
                     >
-                        <RotateCcw className="w-3 h-3" />
-                        Limpar Filtros
+                        <RotateCcw className="w-3.5 h-3.5" />
+                        Resetar
                     </button>
                 )}
             </div>
 
-            <div className="flex gap-2">
+            <div className="flex gap-3 w-full xl:w-auto mt-4 xl:mt-0 pt-6 xl:pt-0 border-t xl:border-t-0 border-border-subtle">
                 <button
                     onClick={handleClearHistory}
-                    className="flex items-center gap-2 px-4 py-2 rounded-lg bg-red-500/10 hover:bg-red-500/20 text-red-400 text-sm font-medium transition-all"
-                    title="Apaga todos os posts do banco de dados"
+                    className="flex-1 xl:flex-none btn btn-secondary !bg-red-500/5 !text-red-400 !border-red-500/10 hover:!bg-red-500/10 hover:!border-red-500/20 text-[10px] font-black uppercase tracking-widest px-6"
                 >
                     <Trash2 className="w-4 h-4" />
-                    Limpar Histórico
+                    Limpar Tudo
                 </button>
                 <button
                     onClick={handleClearLogs}
                     disabled={isClearingLogs}
-                    className="flex items-center gap-2 px-4 py-2 rounded-lg bg-white/5 hover:bg-white/10 text-white/70 text-sm font-medium transition-all"
-                    title="Limpa logs de execução e auditoria"
+                    className="flex-1 xl:flex-none btn btn-secondary text-[10px] font-black uppercase tracking-widest px-6"
                 >
                     <History className="w-4 h-4" />
-                    {isClearingLogs ? 'Limpando...' : 'Limpar Logs'}
+                    {isClearingLogs ? '...' : 'Reset Logs'}
                 </button>
             </div>
         </div>

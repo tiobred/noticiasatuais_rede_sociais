@@ -22,6 +22,20 @@ export function formatDateBR(date: Date): string {
 }
 
 /**
+ * Formata data curta para mobile (ex: 12/05 14:30)
+ */
+export function formatDateShortBR(date: Date): string {
+    return new Intl.DateTimeFormat('pt-BR', {
+        day: '2-digit',
+        month: '2-digit',
+        hour: '2-digit',
+        minute: '2-digit',
+        timeZone: 'America/Sao_Paulo',
+    }).format(date);
+}
+
+
+/**
  * Aguarda N milissegundos
  */
 export function sleep(ms: number): Promise<void> {

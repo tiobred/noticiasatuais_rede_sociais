@@ -4,7 +4,7 @@ import { Trash2 } from 'lucide-react';
 import { useState } from 'react';
 import { useRouter } from 'next/navigation';
 
-export function DeletePostButton({ id }: { id: string }) {
+export function DeletePostButton({ id, redirectTo }: { id: string, redirectTo?: string }) {
     const [isDeleting, setIsDeleting] = useState(false);
     const router = useRouter();
 
@@ -15,7 +15,11 @@ export function DeletePostButton({ id }: { id: string }) {
         try {
             const res = await fetch(`/api/posts/${id}`, { method: 'DELETE' });
             if (res.ok) {
-                router.refresh();
+                if (redirectTo) {
+                    router.push(redirectTo);
+                } else {
+                    router.refresh();
+                }
             } else {
                 alert('Erro ao excluir post.');
             }

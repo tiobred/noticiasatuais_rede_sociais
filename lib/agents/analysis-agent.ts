@@ -120,6 +120,34 @@ Retorne SOMENTE a string final resultante em formato compatível com JSON. Evite
     );
 
     const parsed = parseLlmJson<BatchAnalyzedPost>(content);
+    
+    // Validação defensiva: garantir que 'items' existe e é um array
+    if (!parsed || !Array.isArray(parsed.items)) {
+      console.error(`[analysis] ⚠️ summarizeBatch retornou sem 'items' válido. Resposta:`, content?.slice(0, 200));
+      // Fallback: retornar estrutura mínima válida com itens originais
+      return {
+        globalCaption: '',
+        whatsappConsolidated: '',
+        items: newsItems.map(item => ({
+          title: item.title,
+          summary: item.body?.slice(0, 200) || '',
+          whatsappCaption: `*${item.title}*\n\n${item.body?.slice(0, 150) || ''}`,
+          hashtags: [],
+        }))
+      };
+    }
+    
+    // Garantir que o número de items bate com o input (completar se necessário)
+    while (parsed.items.length < newsItems.length) {
+      const idx = parsed.items.length;
+      parsed.items.push({
+        title: newsItems[idx].title,
+        summary: newsItems[idx].body?.slice(0, 200) || '',
+        whatsappCaption: `*${newsItems[idx].title}*`,
+        hashtags: [],
+      });
+    }
+    
     console.log(`[analysis] ✅ Consolidação de lote concluída (${parsed.items.length} itens)`);
     return parsed;
   }

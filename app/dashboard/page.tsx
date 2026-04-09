@@ -92,7 +92,7 @@ export default async function DashboardPage({
             />
 
             <div className="flex-1 p-4 sm:p-6 lg:p-8">
-                <div className="page-container max-w-7xl mx-auto space-y-6 lg:space-y-8">
+                <div className="page-container space-y-6 lg:space-y-8">
                     {/* Filtros e Controles */}
                     <div className="animate-fade-in-scale">
                         <DashboardControls accounts={accounts} />
@@ -105,7 +105,7 @@ export default async function DashboardPage({
                             label="Posts Hoje"
                             value={postsToday}
                             icon={TrendingUp}
-                            accent="green"
+                            accent="purple"
                             change={postsToday > 0 ? `+${postsToday} hoje` : 'Nenhum ainda'}
                             changeType={postsToday > 0 ? 'positive' : 'neutral'}
                         />
@@ -114,23 +114,23 @@ export default async function DashboardPage({
                             label="Posts Total"
                             value={totalPosts}
                             icon={FileText}
-                            accent="blue"
+                            accent="cyan"
                         />
                         <MetricCard
                             id="metric-publicacoes"
                             label="Publicações"
                             value={publishedCount}
                             icon={Wifi}
-                            accent="yellow"
+                            accent="green"
                             change="Em todos os canais"
                             changeType="neutral"
                         />
                         <MetricCard
                             id="metric-ultimo-run"
-                            label="Último Run"
+                            label="Última Execução"
                             value={lastRunTime}
                             icon={Clock}
-                            accent={lastRun?.status === 'FAILED' ? 'red' : 'blue'}
+                            accent={lastRun?.status === 'FAILED' ? 'red' : 'purple'}
                             change={lastRun?.status === 'FAILED' ? 'Falha detectada' : lastRun?.status === 'SUCCESS' ? 'Sucesso' : 'Aguardando'}
                             changeType={lastRun?.status === 'FAILED' ? 'negative' : lastRun?.status === 'SUCCESS' ? 'positive' : 'neutral'}
                         />
@@ -139,7 +139,6 @@ export default async function DashboardPage({
                     {/* Feed + Agentes */}
                     <section className="grid grid-cols-1 lg:grid-cols-3 gap-6 xl:gap-8">
                         <div className="lg:col-span-2 animate-slide-in-left">
-                            <h2 className="section-label">Feed de Posts</h2>
                             <PostFeed
                                 posts={filteredPosts.map(p => ({
                                     id: p.id,
@@ -160,7 +159,6 @@ export default async function DashboardPage({
                         </div>
 
                         <div className="lg:col-span-1 space-y-6 animate-slide-in-right">
-                            <h2 className="section-label">Status dos Agentes</h2>
                             <AgentStatus
                                 runs={recentRuns.map(r => ({
                                     id: r.id,

@@ -2,8 +2,8 @@
 
 import { useState } from 'react';
 import Image from 'next/image';
-import { Instagram, Linkedin, MessageCircle, CheckCircle, XCircle, Clock, Trash2, CheckSquare, Square } from 'lucide-react';
-import { formatDateBR } from '@/lib/utils';
+import { Instagram, Linkedin, MessageCircle, CheckCircle, XCircle, Clock, Trash2, CheckSquare, Square, ExternalLink, FileText, AlertCircle } from 'lucide-react';
+import { formatDateBR, formatDateShortBR } from '@/lib/utils';
 import { useRouter } from 'next/navigation';
 
 interface PostDisplay {
@@ -36,7 +36,12 @@ interface PostFeedProps {
 export function PostFeed({ posts }: PostFeedProps) {
     const [selectedIds, setSelectedIds] = useState<string[]>([]);
     const [isDeleting, setIsDeleting] = useState(false);
+    const [imageErrors, setImageErrors] = useState<Record<string, boolean>>({});
     const router = useRouter();
+
+    const handleImageError = (postId: string) => {
+        setImageErrors(prev => ({ ...prev, [postId]: true }));
+    };
 
     const toggleSelect = (id: string) => {
         setSelectedIds(prev =>
@@ -78,121 +83,166 @@ export function PostFeed({ posts }: PostFeedProps) {
     };
 
     return (
-        <div id="post-feed" className="glass rounded-xl border border-white/5 overflow-hidden">
-            <div className="flex items-center justify-between px-5 py-4 border-b border-white/5">
-                <div className="flex items-center gap-4">
-                    <h3 className="text-sm font-semibold text-white">Posts Publicados</h3>
+        <div id="post-feed" className="animate-in space-y-4">
+            <div className="flex items-center justify-between px-2">
+                <div className="flex items-center gap-6">
+                    <h3 className="section-label !mb-0 text-text-primary">Atividade Recente</h3>
                     {posts.length > 0 && (
                         <button
                             onClick={toggleSelectAll}
-                            className="text-xs text-white/30 hover:text-white/60 transition-colors flex items-center gap-1.5"
+                            className="text-xs text-text-muted hover:text-purple-400 transition-colors flex items-center gap-1.5 font-bold uppercase tracking-wider"
                         >
-                            {selectedIds.length === posts.length ? <CheckSquare className="w-3.5 h-3.5" /> : <Square className="w-3.5 h-3.5" />}
-                            Selecionar Todos
+                            {selectedIds.length === posts.length ? <CheckSquare className="w-4 h-4" /> : <Square className="w-4 h-4" />}
+                            {selectedIds.length === posts.length ? 'Desmarcar' : 'Selecionar Tudo'}
                         </button>
                     )}
                 </div>
 
-                <div className="flex items-center gap-3">
+                <div className="flex items-center gap-4">
                     {selectedIds.length > 0 && (
                         <button
                             onClick={handleBatchDelete}
                             disabled={isDeleting}
-                            className="flex items-center gap-1.5 px-2.5 py-1 rounded bg-red-500/10 text-red-400 hover:bg-red-500/20 text-xs font-medium transition-all"
+                            className="flex items-center gap-2 px-4 py-1.5 rounded-xl bg-red-400/10 text-red-400 hover:bg-red-400/20 text-xs font-bold transition-all border border-red-400/20"
                         >
                             <Trash2 className="w-3.5 h-3.5" />
                             {isDeleting ? 'Excluindo...' : `Excluir (${selectedIds.length})`}
                         </button>
                     )}
-                    <span className="text-xs text-white/30 font-mono">{posts.length} posts</span>
                 </div>
             </div>
 
-            <div className="divide-y divide-white/5 max-h-[600px] overflow-y-auto scrollable">
+            <div className="grid grid-cols-1 gap-4 overflow-y-auto max-h-[800px] pr-2 custom-scrollbar">
                 {posts.length === 0 ? (
-                    <div className="px-5 py-16 text-center animate-fade-in">
-                        <div className="w-12 h-12 rounded-2xl bg-surface-800 border border-white/5 flex items-center justify-center mx-auto mb-4">
-                            <Clock className="w-6 h-6 text-white/20" />
+                    <div className="card text-center py-20 flex flex-col items-center justify-center">
+                        <div className="w-16 h-16 rounded-3xl bg-bg-elevated border border-border-subtle flex items-center justify-center mb-6">
+                            <Clock className="w-8 h-8 text-text-muted" />
                         </div>
-                        <p className="text-sm font-medium text-white/50">Nenhum post publicado ainda</p>
-                        <p className="text-xs text-white/30 mt-1.5">Execute o pipeline para começar a gerar conteúdo</p>
+                        <p className="text-lg font-bold text-text-primary">Sem publicações recentes</p>
+                        <p className="text-sm text-text-muted mt-2">Os posts gerados pelos agentes aparecerão aqui.</p>
                     </div>
                 ) : (
                     posts.map((post) => (
                         <article
                             key={post.id}
-                            className={`flex gap-4 p-4 hover:bg-white/2 transition-colors animate-fade-in group ${selectedIds.includes(post.id) ? 'bg-white/5' : ''
-                                }`}
+                            className={`
+                                relative flex flex-col sm:flex-row gap-4 sm:gap-5 p-4 sm:p-5 card cursor-default group
+                                ${selectedIds.includes(post.id) ? 'ring-1 ring-purple-500 bg-purple-500/5' : ''}
+                            `}
                         >
                             {/* Selection Checkbox */}
-                            <div className="flex-shrink-0 flex items-start pt-1">
+                            <div className="absolute top-4 right-4 z-10">
                                 <button
-                                    onClick={() => toggleSelect(post.id)}
-                                    className={`w-4 h-4 rounded border transition-colors flex items-center justify-center
-                    ${selectedIds.includes(post.id) ? 'bg-brand-500 border-brand-500' : 'border-white/10 group-hover:border-white/20'}`}
+                                    onClick={(e) => {
+                                        e.stopPropagation();
+                                        toggleSelect(post.id);
+                                    }}
+                                    className={`w-6 h-6 sm:w-5 sm:h-5 rounded-lg border flex items-center justify-center transition-all
+                                        ${selectedIds.includes(post.id) 
+                                            ? 'bg-purple-500 border-purple-500 shadow-purple' 
+                                            : 'border-border-strong group-hover:border-purple-500/50 bg-bg-base/50'
+                                        }`}
                                 >
-                                    {selectedIds.includes(post.id) && <CheckSquare className="w-3 h-3 text-white" />}
+                                    {selectedIds.includes(post.id) && <CheckSquare className="w-4 h-4 text-white" />}
                                 </button>
                             </div>
 
-                            {/* Thumbnail */}
-                            {post.imageUrl && (
-                                <div className="flex-shrink-0 w-16 h-16 rounded-lg overflow-hidden bg-surface-700">
+                            {/* Thumbnail / Symbol */}
+                            <div className="flex-shrink-0 relative w-full sm:w-24 h-48 sm:h-24 rounded-2xl overflow-hidden bg-bg-elevated border border-border-subtle group-hover:border-border-brand transition-all">
+                                {post.imageUrl && !imageErrors[post.id] ? (
                                     <Image
                                         src={post.imageUrl}
                                         alt={post.title}
-                                        width={64}
-                                        height={64}
-                                        className="w-full h-full object-cover"
+                                        fill
+                                        sizes="(max-width: 640px) 100vw, 96px"
+                                        className="object-cover transition-transform duration-500 group-hover:scale-110"
                                         unoptimized
+                                        onError={() => handleImageError(post.id)}
                                     />
-                                </div>
-                            )}
+                                ) : (
+                                    <div className="w-full h-full flex flex-col items-center justify-center text-text-muted bg-bg-surface/50">
+                                        {imageErrors[post.id] ? (
+                                            <>
+                                                <AlertCircle className="w-8 h-8 opacity-20 mb-1" />
+                                                <span className="text-[10px] font-bold uppercase opacity-20">Erro ao carregar</span>
+                                            </>
+                                        ) : (
+                                            <FileText className="w-8 h-8 opacity-20" />
+                                        )}
+                                    </div>
+                                )}
 
-                            <div className="flex-1 min-w-0">
-                                {/* Source + Time */}
-                                <div className="flex items-center gap-2 mb-1">
-                                    <span className="text-xs text-brand-400 font-medium">{post.sourceName}</span>
-                                    <span className="text-xs text-white/20">•</span>
-                                    <span className="text-xs text-white/30 font-mono">
-                                        {formatDateBR(new Date(post.createdAt))}
-                                    </span>
-                                    <span className={`text-[10px] px-1.5 py-0.5 rounded-full ml-auto uppercase font-bold tracking-wider
-                    ${post.status === 'PUBLISHED' ? 'bg-emerald-500/10 text-emerald-400' :
-                                            post.status === 'PROCESSED' ? 'bg-blue-500/10 text-blue-400' : 'bg-white/5 text-white/30'}`}>
-                                        {post.status}
-                                    </span>
+                                {/* Channel Overlay */}
+                                <div className="absolute bottom-1 right-1 flex gap-1">
+                                    {post.publications.slice(0, 3).map((pub, i) => (
+                                         <div key={i} className={`w-6 h-6 rounded-lg glass flex items-center justify-center text-white p-1.5 shadow-xl`}>
+                                            {channelIcons[pub.channel]}
+                                         </div>
+                                    ))}
                                 </div>
+                            </div>
+
+                            <div className="flex-1 min-w-0 flex flex-col justify-center">
+                                {/* Header Info */}
+                                <div className="flex flex-col sm:flex-row sm:items-center gap-2 sm:gap-3 mb-2">
+                                    <div className="flex items-center gap-2">
+                                        <span className="text-[10px] bg-bg-elevated text-purple-400 font-black px-2 py-0.5 rounded border border-border-subtle uppercase tracking-wider whitespace-nowrap">
+                                            {post.sourceName}
+                                        </span>
+                                        <span className="text-[11px] text-text-muted font-bold flex items-center gap-1.5 whitespace-nowrap">
+                                            <Clock className="w-3.5 h-3.5" />
+                                            <span className="block sm:hidden">{formatDateShortBR(new Date(post.createdAt))}</span>
+                                            <span className="hidden sm:block">{formatDateBR(new Date(post.createdAt))}</span>
+                                        </span>
+                                    </div>
+                                    
+                                    <div className="sm:ml-auto pr-8">
+                                        <span className={`badge text-[10px] sm:text-xs ${
+                                            post.status === 'PUBLISHED' ? 'badge-success' : 
+                                            post.status === 'PROCESSED' ? 'badge-brand' : 'badge-pending'
+                                        }`}>
+                                            {post.status}
+                                        </span>
+                                    </div>
+                                </div>
+
 
                                 {/* Title */}
-                                <h4 className="text-sm font-semibold text-white leading-snug mb-1 line-clamp-2">{post.title}</h4>
+                                <h4 className="text-sm sm:text-base font-bold text-text-primary leading-tight mb-2 pr-6 group-hover:text-purple-400 transition-colors line-clamp-2 sm:truncate">
+                                    {post.title}
+                                </h4>
 
                                 {/* Body preview */}
-                                <p className="text-xs text-white/40 line-clamp-2 leading-relaxed">{post.body}</p>
+                                <p className="text-xs sm:text-sm text-text-secondary line-clamp-2 sm:line-clamp-1 leading-relaxed">{post.body}</p>
 
-                                {/* Channels status */}
-                                <div className="flex items-center gap-2 mt-2">
+
+                                {/* Footer: Account specific status */}
+                                <div className="flex flex-wrap items-center gap-3 mt-4">
                                     {post.publications.map((pub, i) => (
                                         <div
                                             key={i}
-                                            className={`flex items-center gap-1 px-1.5 py-0.5 rounded text-xs
-                        ${pub.status === 'SUCCESS' ? 'text-emerald-400/80' :
-                                                    pub.status === 'FAILED' ? 'text-red-400/80' : 'text-white/30'}`}
-                                            title={`${pub.channel}: ${pub.status}${pub.accountId ? ` (Conta: ${pub.accountId})` : ''}`}
+                                            className={`flex items-center gap-2 px-3 py-1 rounded-lg bg-bg-base border border-border-subtle transition-all hover:border-border-brand
+                                                ${pub.status === 'SUCCESS' ? 'text-green-400' :
+                                                pub.status === 'FAILED' ? 'text-red-400' : 'text-text-muted'}`}
+                                            title={`${pub.channel}: ${pub.status}`}
                                         >
-                                            {channelIcons[pub.channel] ?? <Clock className="w-3 h-3" />}
+                                            <span className="opacity-70 scale-90">{channelIcons[pub.channel]}</span>
                                             {pub.accountId && (
-                                                <span className="font-mono opacity-80 max-w-20 truncate">{pub.accountId}</span>
+                                                <span className="text-[10px] font-bold tracking-tight max-w-[80px] truncate uppercase">{pub.accountId}</span>
                                             )}
                                             {pub.status === 'SUCCESS' ? (
-                                                <CheckCircle className="w-2.5 h-2.5" />
+                                                <CheckCircle className="w-3.5 h-3.5" />
                                             ) : pub.status === 'FAILED' ? (
-                                                <XCircle className="w-2.5 h-2.5" />
+                                                <XCircle className="w-3.5 h-3.5" />
                                             ) : (
-                                                <Clock className="w-2.5 h-2.5" />
+                                                <Clock className="w-3.5 h-3.5 animate-pulse" />
                                             )}
                                         </div>
                                     ))}
+                                    
+                                    <button className="ml-auto opacity-0 group-hover:opacity-100 transition-opacity text-text-muted hover:text-text-primary">
+                                        <ExternalLink className="w-4 h-4" />
+                                    </button>
                                 </div>
                             </div>
                         </article>

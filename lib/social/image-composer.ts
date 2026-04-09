@@ -1,23 +1,31 @@
 import { createCanvas, loadImage } from '@napi-rs/canvas';
 import type { SKRSContext2D } from '@napi-rs/canvas';
-import { createClient } from '@supabase/supabase-js';
 import { VideoComposer } from './video-composer';
 import axios from 'axios';
 import fs from 'fs';
 import path from 'path';
 
-function getSupabaseClient() {
-    const url = process.env.SUPABASE_URL;
-    const key = process.env.SUPABASE_ANON_KEY;
+// Diretório local onde as mídias temporárias são salvas
+const LOCAL_MEDIA_DIR = path.join(process.cwd(), 'tmp', 'media');
 
-    if (!url || !key) {
-        throw new Error('Supabase env vars not configured');
+/**
+ * Garante que o diretório de mídia temporária exista.
+ */
+function ensureMediaDir() {
+    if (!fs.existsSync(LOCAL_MEDIA_DIR)) {
+        fs.mkdirSync(LOCAL_MEDIA_DIR, { recursive: true });
     }
-
-    return createClient(url, key);
 }
 
-const BUCKET = 'media';
+/**
+ * Retorna a URL pública para um arquivo local servido via API route.
+ * Em dev: http://localhost:3000/api/media/<filename>
+ * Em produção: https://<domínio>/api/media/<filename>
+ */
+function getLocalMediaUrl(filename: string): string {
+    const base = (process.env.NEXTAUTH_URL || 'http://localhost:3000').replace(/\/$/, '');
+    return `${base}/api/media/${filename}`;
+}
 
 // Dimensões do carrossel Instagram (quadrado 1:1)
 const W = 1080;
@@ -148,22 +156,14 @@ export async function composeSlideImage(
     ctx.fillText(`${slideIndex + 1}`, W - 40, 40);
     ctx.textAlign = 'left';
 
-    // ── 8. Upload para Supabase Storage ──────────────────────────
-    const buffer = canvas.toBuffer('image/jpeg', 100);
-    const filename = `slide-${Date.now()}-${slideIndex}.jpg`;
-
-    const { error } = await getSupabaseClient().storage
-        .from(BUCKET)
-        .upload(filename, buffer, {
-            contentType: 'image/jpeg',
-            upsert: true,
-        });
-
-    if (error) throw new Error(`[composer] Erro ao fazer upload do slide: ${error.message}`);
-
-    const { data: urlData } = getSupabaseClient().storage.from(BUCKET).getPublicUrl(filename);
-    console.log(`[composer] ✅ Slide ${slideIndex + 1} pronto: ${filename}`);
-    return { publicUrl: urlData.publicUrl };
+    // ── 8. Salvar localmente e retornar URL via API route ───────────────
+    const buffer = canvas.toBuffer('image/jpeg', 90);
+    const filename = `slide-${Date.now()}-${slideIndex}-${Math.floor(Math.random() * 10000)}.jpg`;
+    ensureMediaDir();
+    fs.writeFileSync(path.join(LOCAL_MEDIA_DIR, filename), buffer);
+    const publicUrl = getLocalMediaUrl(filename);
+    console.log(`[composer] ✅ Slide ${slideIndex + 1} salvo localmente: ${filename}`);
+    return { publicUrl };
 }
 
 /**
@@ -274,19 +274,14 @@ export async function composeStoryImage(
     ctx.font = `bold ${40 * SCALE}px sans-serif`;
     ctx.fillText('📊 Notícia da Hora', padX, brandY);
 
-    // ── 7. Upload ao Supabase ───────
-    const buffer = canvas.toBuffer('image/jpeg', 100);
-    const filename = `story-${Date.now()}.jpg`;
-
-    const { error } = await getSupabaseClient().storage
-        .from(BUCKET)
-        .upload(filename, buffer, { contentType: 'image/jpeg', upsert: true });
-
-    if (error) throw new Error(`[composer] Erro ao fazer upload do story: ${error.message}`);
-
-    const { data: urlData } = getSupabaseClient().storage.from(BUCKET).getPublicUrl(filename);
-    console.log(`[composer] ✅ Story pronto: ${filename}`);
-    return { publicUrl: urlData.publicUrl };
+    // ── 7. Salvar localmente e retornar URL via API route ───────
+    const buffer = canvas.toBuffer('image/jpeg', 90);
+    const filename = `story-${Date.now()}-${Math.floor(Math.random() * 10000)}.jpg`;
+    ensureMediaDir();
+    fs.writeFileSync(path.join(LOCAL_MEDIA_DIR, filename), buffer);
+    const publicUrl = getLocalMediaUrl(filename);
+    console.log(`[composer] ✅ Story salvo localmente: ${filename}`);
+    return { publicUrl, _localFile: filename } as any;
 }
 
 /**
@@ -334,19 +329,14 @@ export async function composeOriginalStoryImage(
         console.warn(`[composer] Falha ao carregar imagem original para composeOriginalStoryImage`);
     }
 
-    // 3. Upload
-    const buffer = canvas.toBuffer('image/jpeg', 95);
-    const filename = `story-orig-${Date.now()}-${Math.floor(Math.random() * 1000)}.jpg`;
-
-    const { error } = await getSupabaseClient().storage
-        .from(BUCKET)
-        .upload(filename, buffer, { contentType: 'image/jpeg', upsert: true });
-
-    if (error) throw new Error(`[composer] Erro ao fazer upload do story original: ${error.message}`);
-
-    const { data: urlData } = getSupabaseClient().storage.from(BUCKET).getPublicUrl(filename);
-    console.log(`[composer] ✅ Story original pronto: ${filename}`);
-    return { publicUrl: urlData.publicUrl };
+    // 3. Salvar localmente e retornar URL via API route
+    const buffer = canvas.toBuffer('image/jpeg', 90);
+    const filename = `story-orig-${Date.now()}-${Math.floor(Math.random() * 10000)}.jpg`;
+    ensureMediaDir();
+    fs.writeFileSync(path.join(LOCAL_MEDIA_DIR, filename), buffer);
+    const publicUrl = getLocalMediaUrl(filename);
+    console.log(`[composer] ✅ Story original salvo localmente: ${filename}`);
+    return { publicUrl, _localFile: filename } as any;
 }
 
 /**
@@ -367,20 +357,11 @@ export async function rehostImage(url: string, prefix = 'original'): Promise<str
         const ctx = canvas.getContext('2d');
         ctx.drawImage(img, 0, 0);
 
-        const buffer = canvas.toBuffer('image/jpeg', 95);
-        const filename = `${prefix}-${Date.now()}-${Math.floor(Math.random() * 1000)}.jpg`;
-
-        const { error } = await getSupabaseClient().storage
-            .from(BUCKET)
-            .upload(filename, buffer, {
-                contentType: 'image/jpeg',
-                upsert: true,
-            });
-
-        if (error) throw error;
-
-        const { data: urlData } = getSupabaseClient().storage.from(BUCKET).getPublicUrl(filename);
-        return urlData.publicUrl;
+        const buffer = canvas.toBuffer('image/jpeg', 90);
+        const filename = `${prefix}-${Date.now()}-${Math.floor(Math.random() * 10000)}.jpg`;
+        ensureMediaDir();
+        fs.writeFileSync(path.join(LOCAL_MEDIA_DIR, filename), buffer);
+        return getLocalMediaUrl(filename);
     } catch (err) {
         console.error(`[composer] Erro ao re-hospedar imagem:`, err);
         return url; // fallback para URL original
@@ -414,22 +395,17 @@ export async function rehostVideo(url: string, prefix = 'video', normalize = fal
             finalPath = await videoComposer.normalizeForInstagram(inputPath, `norm-${finalFilename}`);
         }
 
-        const uploadBuffer = fs.readFileSync(finalPath);
-        const { error } = await getSupabaseClient().storage
-            .from(BUCKET)
-            .upload(finalFilename, uploadBuffer, {
-                contentType: 'video/mp4',
-                upsert: true,
-            });
+        // Salvar vídeo no diretório local de mídias
+        ensureMediaDir();
+        const localPath = path.join(LOCAL_MEDIA_DIR, finalFilename);
+        fs.copyFileSync(finalPath, localPath);
 
-        if (error) throw error;
-
-        // Cleanup
+        // Cleanup dos temporários de processamento
         if (fs.existsSync(inputPath)) fs.unlinkSync(inputPath);
-        if (normalize && fs.existsSync(finalPath)) fs.unlinkSync(finalPath);
+        if (normalize && fs.existsSync(finalPath) && finalPath !== localPath) fs.unlinkSync(finalPath);
 
-        const { data: urlData } = getSupabaseClient().storage.from(BUCKET).getPublicUrl(finalFilename);
-        return { publicUrl: urlData.publicUrl, filename: finalFilename };
+        const publicUrl = getLocalMediaUrl(finalFilename);
+        return { publicUrl, filename: finalFilename };
     } catch (err) {
         console.error(`[composer] Erro ao re-hospedar vídeo:`, err);
         if (fs.existsSync(inputPath)) try { fs.unlinkSync(inputPath); } catch {}
@@ -438,15 +414,18 @@ export async function rehostVideo(url: string, prefix = 'video', normalize = fal
 }
 
 /**
- * Remove um arquivo do bucket do Supabase.
+ * Remove um arquivo de mídia temporário local.
  */
 export async function deleteHostedFile(filename: string): Promise<void> {
     if (!filename) return;
     try {
-        console.log(`[composer] Removendo arquivo temporário: ${filename}`);
-        await getSupabaseClient().storage.from(BUCKET).remove([filename]);
+        const filePath = path.join(LOCAL_MEDIA_DIR, path.basename(filename));
+        if (fs.existsSync(filePath)) {
+            fs.unlinkSync(filePath);
+            console.log(`[composer] Arquivo local removido: ${filename}`);
+        }
     } catch (err) {
-        console.error(`[composer] Falha ao remover arquivo do storage:`, err);
+        console.error(`[composer] Falha ao remover arquivo local:`, err);
     }
 }
 

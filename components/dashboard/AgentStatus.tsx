@@ -1,4 +1,4 @@
-import { CheckCircle, XCircle, Clock, Loader2, Bot } from 'lucide-react';
+import { CheckCircle, XCircle, Clock, Loader2, Bot, Activity } from 'lucide-react';
 import { formatDateBR } from '@/lib/utils';
 
 interface AgentRunDisplay {
@@ -14,9 +14,9 @@ interface AgentRunDisplay {
 }
 
 const statusConfig = {
-    RUNNING: { icon: Loader2, label: 'Executando', cls: 'badge-running', spin: true },
-    SUCCESS: { icon: CheckCircle, label: 'Sucesso', cls: 'badge-success', spin: false },
-    FAILED: { icon: XCircle, label: 'Falhou', cls: 'badge-failed', spin: false },
+    RUNNING: { icon: Loader2, label: 'Ativo', badge: 'badge-brand', spin: true },
+    SUCCESS: { icon: CheckCircle, label: 'Concluído', badge: 'badge-success', spin: false },
+    FAILED: { icon: XCircle, label: 'Erro', badge: 'badge-failed', spin: false },
 };
 
 interface AgentStatusProps {
@@ -25,57 +25,78 @@ interface AgentStatusProps {
 
 export function AgentStatus({ runs }: AgentStatusProps) {
     return (
-        <div id="agent-status-panel" className="glass rounded-xl border border-white/5 overflow-hidden">
-            <div className="flex items-center justify-between px-5 py-4 border-b border-white/5">
-                <div className="flex items-center gap-2">
-                    <Bot className="w-4 h-4 text-brand-400" />
-                    <h3 className="text-sm font-semibold text-white">Agentes</h3>
+        <div id="agent-status-panel" className="card !p-0 overflow-hidden flex flex-col h-full border-border-subtle hover:shadow-glow transition-all">
+            <div className="flex items-center justify-between px-6 py-4 border-b border-border-subtle bg-bg-surface">
+                <div className="flex items-center gap-3">
+                    <Activity className="w-5 h-5 text-purple-400" />
+                    <h3 className="text-sm font-black text-text-primary uppercase tracking-widest">Atividade de IA</h3>
                 </div>
-                <span className="text-xs text-white/30 font-mono">{runs.length} runs</span>
+                <div className="w-2.5 h-2.5 rounded-full bg-green-400 animate-pulse shadow-[0_0_8px_var(--green-400)]" />
             </div>
 
-            <div className="divide-y divide-white/5 max-h-[600px] overflow-y-auto scrollable">
+            <div className="flex-1 divide-y divide-border-subtle overflow-y-auto max-h-[600px] custom-scrollbar">
                 {runs.length === 0 ? (
-                    <div className="px-5 py-12 text-center animate-fade-in">
-                        <div className="w-10 h-10 rounded-xl bg-surface-800 border border-white/5 flex items-center justify-center mx-auto mb-3">
-                            <Clock className="w-5 h-5 text-white/20" />
+                    <div className="px-6 py-16 text-center animate-in">
+                        <div className="w-12 h-12 rounded-2xl bg-bg-base border border-border-subtle flex items-center justify-center mx-auto mb-4">
+                            <Bot className="w-6 h-6 text-text-muted" />
                         </div>
-                        <p className="text-sm font-medium text-white/40">Nenhuma execução registrada</p>
+                        <p className="text-sm font-bold text-text-muted">Aguardando Execuções</p>
                     </div>
                 ) : (
                     runs.map((run) => {
-                        const cfg = statusConfig[run.status];
+                        const cfg = statusConfig[run.status] || statusConfig.SUCCESS;
                         const StatusIcon = cfg.icon;
 
                         return (
-                            <div key={run.id} className="px-5 py-3 hover:bg-white/2 transition-colors">
-                                <div className="flex items-start justify-between gap-2 mb-2">
-                                    <div className="flex items-center gap-2 min-w-0">
-                                        <StatusIcon className={`w-3.5 h-3.5 flex-shrink-0 ${run.status === 'SUCCESS' ? 'text-emerald-400' :
-                                            run.status === 'FAILED' ? 'text-red-400' : 'text-brand-400'
-                                            } ${cfg.spin ? 'animate-spin' : ''}`} />
-                                        <span className="text-xs text-white/60 font-mono truncate">{run.agentName}</span>
+                            <div key={run.id} className="px-6 py-4 hover:bg-bg-elevated/40 transition-colors group animate-in">
+                                <div className="flex items-start justify-between gap-3 mb-3">
+                                    <div className="flex flex-col min-w-0">
+                                        <span className="text-[10px] font-black text-text-muted uppercase tracking-[0.15em] mb-1">Agent Name</span>
+                                        <span className="text-sm font-bold text-text-primary truncate">{run.agentName}</span>
                                     </div>
-                                    <span className={cfg.cls}>{cfg.label}</span>
+                                    <span className={`badge ${cfg.badge} shrink-0`}>
+                                        <StatusIcon className={`w-3 h-3 ${cfg.spin ? 'animate-spin' : ''}`} />
+                                        {cfg.label}
+                                    </span>
                                 </div>
 
-                                <div className="flex gap-3 text-xs text-white/30 font-mono">
-                                    <span>🔍 {run.postsFound}</span>
-                                    <span>✨ {run.postsNew}</span>
-                                    <span>📤 {run.postsPublished}</span>
+                                <div className="grid grid-cols-3 gap-2 mb-3">
+                                    <div className="bg-bg-base/50 p-2 rounded-lg border border-border-subtle text-center group-hover:border-purple-500/20 transition-all">
+                                        <p className="text-[9px] font-black text-text-muted uppercase tracking-wider mb-0.5">Scanned</p>
+                                        <p className="text-xs font-bold text-cyan-400">{run.postsFound}</p>
+                                    </div>
+                                    <div className="bg-bg-base/50 p-2 rounded-lg border border-border-subtle text-center group-hover:border-purple-500/20 transition-all">
+                                        <p className="text-[9px] font-black text-text-muted uppercase tracking-wider mb-0.5">New</p>
+                                        <p className="text-xs font-bold text-purple-400">{run.postsNew}</p>
+                                    </div>
+                                    <div className="bg-bg-base/50 p-2 rounded-lg border border-border-subtle text-center group-hover:border-purple-500/20 transition-all">
+                                        <p className="text-[9px] font-black text-text-muted uppercase tracking-wider mb-0.5">Ready</p>
+                                        <p className="text-xs font-bold text-green-400">{run.postsPublished}</p>
+                                    </div>
                                 </div>
 
                                 {run.error && (
-                                    <p className="text-xs text-red-400/70 mt-1 truncate">{run.error}</p>
+                                    <div className="mb-3 p-2 bg-red-400/5 border border-red-400/10 rounded-lg">
+                                       <p className="text-[10px] text-red-400 font-medium leading-normal">{run.error}</p>
+                                    </div>
                                 )}
 
-                                <p className="text-xs text-white/20 mt-1 font-mono">
-                                    {formatDateBR(new Date(run.startedAt))}
-                                </p>
+                                <div className="flex items-center gap-2 mt-2 pt-2 border-t border-border-subtle/50">
+                                    <Clock className="w-3.5 h-3.5 text-text-muted" />
+                                    <p className="text-[10px] text-text-muted font-bold font-mono">
+                                        {formatDateBR(new Date(run.startedAt))}
+                                    </p>
+                                </div>
                             </div>
                         );
                     })
                 )}
+            </div>
+            
+            <div className="p-4 bg-bg-surface border-t border-border-subtle">
+               <button className="w-full btn btn-secondary text-[11px] font-black uppercase tracking-widest py-3">
+                  Ver Log Completo
+               </button>
             </div>
         </div>
     );

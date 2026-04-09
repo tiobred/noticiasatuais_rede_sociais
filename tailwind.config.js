@@ -9,43 +9,60 @@ module.exports = {
     theme: {
         extend: {
             colors: {
-                brand: {
-                    50: '#f0f9ff',
-                    100: '#e0f2fe',
-                    200: '#bae6fd',
-                    300: '#7dd3fc',
-                    400: '#38bdf8',
-                    500: '#0ea5e9',
-                    600: '#0284c7',
-                    700: '#0369a1',
-                    800: '#075985',
-                    900: '#0c4a6e',
+                bg: {
+                    base: 'var(--bg-base)',
+                    surface: 'var(--bg-surface)',
+                    elevated: 'var(--bg-elevated)',
                 },
-                emerald: {
-                    400: '#34d399',
-                    500: '#10b981',
-                    600: '#059669',
+                text: {
+                    primary: 'var(--text-primary)',
+                    secondary: 'var(--text-secondary)',
+                    muted: 'var(--text-muted)',
                 },
-                surface: {
-                    900: '#0a0f1e',
-                    800: '#0f1729',
-                    700: '#1a2540',
-                    600: '#243052',
-                    500: '#2e3d66',
+                purple: {
+                  400: 'var(--purple-400)',
+                  500: 'var(--purple-500)',
                 },
+                pink: {
+                  500: 'var(--pink-500)',
+                },
+                cyan: {
+                  400: 'var(--cyan-400)',
+                },
+                green: {
+                  400: 'var(--green-400)',
+                },
+                amber: {
+                  400: 'var(--amber-400)',
+                },
+                red: {
+                  400: 'var(--red-400)',
+                },
+                border: {
+                  subtle: 'var(--border-subtle)',
+                  default: 'var(--border-default)',
+                  strong: 'var(--border-strong)',
+                }
             },
             fontFamily: {
                 sans: ['Inter', 'system-ui', 'sans-serif'],
-                mono: ['DM Mono', 'monospace'],
             },
             backgroundImage: {
-                'gradient-brand': 'linear-gradient(135deg, #0ea5e9 0%, #10b981 100%)',
-                'gradient-surface': 'linear-gradient(180deg, #0a0f1e 0%, #0f1729 100%)',
+                'grad-primary': 'var(--grad-primary)',
+                'grad-accent': 'var(--grad-accent)',
+                'grad-success': 'var(--grad-success)',
+                'grad-warm': 'var(--grad-warm)',
             },
             boxShadow: {
-                'glow-blue': '0 0 20px rgba(14, 165, 233, 0.3)',
-                'glow-green': '0 0 20px rgba(16, 185, 129, 0.3)',
+                'purple': 'var(--shadow-purple)',
+                'glow': 'var(--shadow-glow)',
             },
+            borderRadius: {
+              'sm': 'var(--radius-sm)',
+              'md': 'var(--radius-md)',
+              'lg': 'var(--radius-lg)',
+              'xl': 'var(--radius-xl)',
+            }
         },
     },
     plugins: [],

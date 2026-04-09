@@ -1,30 +1,23 @@
 'use client';
 
 import { useState, useEffect } from 'react';
-import { Clock, Save, Loader2, Plus, Trash2, Calendar, RefreshCw, Zap } from 'lucide-react';
+import { Clock, Save, Loader2, Plus, Trash2, Calendar, RefreshCw, Zap, Settings, Info } from 'lucide-react';
 
 export interface TriggerRule {
     id: string;
     type: 'minutes' | 'hours' | 'days' | 'cron' | 'weekly';
     value: number | string;
     minute?: number;
-    // Para tipo 'weekly': dias da semana (0=Dom, 1=Seg .. 6=Sáb) + hora
     days?: number[];
     time?: string; // HH:MM
-}
-
-interface TriggerEditorProps {
-    triggers: TriggerRule[];
-    onSave: (triggers: TriggerRule[]) => void;
-    saving?: boolean;
 }
 
 const DAY_LABELS = ['Dom', 'Seg', 'Ter', 'Qua', 'Qui', 'Sex', 'Sáb'];
 const DAY_FULL = ['Domingo', 'Segunda', 'Terça', 'Quarta', 'Quinta', 'Sexta', 'Sábado'];
 
 function describeTrigger(t: TriggerRule): string {
-    if (t.type === 'minutes') return `A cada ${t.value} min`;
-    if (t.type === 'hours') return `A cada ${t.value}h (no min. ${t.minute ?? 0})`;
+    if (t.type === 'minutes') return `A cada ${t.value} minutos`;
+    if (t.type === 'hours') return `A cada ${t.value}h no minuto ${t.minute ?? 0}`;
     if (t.type === 'days') return `Diário às ${t.value}`;
     if (t.type === 'cron') return `Cron: ${t.value}`;
     if (t.type === 'weekly') {
@@ -95,272 +88,264 @@ export function TriggerEditor({ triggers: initialTriggers, onSave, saving }: Tri
     };
 
     return (
-        <div className="glass rounded-xl border border-white/5 overflow-hidden shadow-2xl">
-            {/* Header */}
-            <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between px-6 py-5 border-b border-white/5 bg-white/2 gap-4">
-                <div className="flex items-center gap-3">
-                    <div className="w-10 h-10 rounded-lg bg-orange-500/10 flex items-center justify-center border border-orange-500/20">
-                        <Calendar className="w-5 h-5 text-orange-400" />
+        <div className="card !p-0 overflow-hidden border-border-strong bg-bg-surface/50">
+            <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between px-8 py-6 border-b border-border-subtle bg-bg-elevated/20 gap-4">
+                <div className="flex items-center gap-4">
+                    <div className="w-12 h-12 rounded-2xl bg-orange-500/10 flex items-center justify-center border border-orange-500/20 shadow-glow shadow-orange-500/10">
+                        <Calendar className="w-6 h-6 text-orange-400" />
                     </div>
                     <div>
-                        <h3 className="text-lg font-semibold text-white">Planejador de Execução</h3>
-                        <p className="text-sm text-white/40">Configure quando o robô deve buscar e publicar notícias</p>
+                        <h3 className="text-lg font-black text-text-primary uppercase tracking-tight">Planejador de Execução</h3>
+                        <p className="text-sm text-text-muted font-medium">Orquestração de coleta e publicação</p>
                     </div>
                 </div>
-                <div className="flex items-center gap-2">
+                <div className="flex items-center gap-2 p-1 bg-bg-base/80 border border-border-subtle rounded-xl">
                     <button
-                        onClick={() => setActiveTab(activeTab === 'visual' ? 'advanced' : 'visual')}
-                        className="px-3 py-1.5 text-xs text-white/40 hover:text-white/70 border border-white/10 rounded-lg transition-all"
+                        onClick={() => setActiveTab('visual')}
+                        className={`px-4 py-2 rounded-lg text-[10px] font-black uppercase tracking-widest transition-all ${activeTab === 'visual' ? 'bg-bg-elevated text-purple-400 shadow-sm' : 'text-text-muted hover:text-text-primary'}`}
                     >
-                        {activeTab === 'visual' ? 'Modo Avançado (Cron)' : 'Modo Visual'}
+                        Visual
+                    </button>
+                    <button
+                        onClick={() => setActiveTab('advanced')}
+                        className={`px-4 py-2 rounded-lg text-[10px] font-black uppercase tracking-widest transition-all ${activeTab === 'advanced' ? 'bg-bg-elevated text-purple-400 shadow-sm' : 'text-text-muted hover:text-text-primary'}`}
+                    >
+                        Advanced
                     </button>
                 </div>
             </div>
 
-            {/* Quick Add Buttons */}
-            <div className="px-6 pt-5 pb-2">
-                <p className="text-[10px] uppercase tracking-wider text-white/30 mb-3 font-bold">Adicionar Regra</p>
+            <div className="px-8 py-6 border-b border-border-subtle bg-bg-base/20">
+                <p className="text-[10px] font-black uppercase tracking-[0.2em] text-text-muted mb-4">Pipeline Rules</p>
                 <div className="flex flex-wrap gap-2">
                     <button onClick={() => addTrigger('weekly')}
-                        className="flex items-center gap-1.5 px-3 py-1.5 bg-brand-500/10 hover:bg-brand-500/20 border border-brand-500/20 hover:border-brand-500/40 text-brand-400 rounded-lg text-xs font-medium transition-all">
-                        <Calendar className="w-3.5 h-3.5" /> Dias da Semana
+                        className="flex items-center gap-2 px-4 py-2.5 bg-bg-elevated hover:bg-bg-surface border border-border-subtle hover:border-purple-500/30 text-text-primary rounded-xl text-[11px] font-bold transition-all hover:scale-[1.02] active:scale-[0.98]">
+                        <Calendar className="w-4 h-4 text-purple-400" /> 
+                        <span>Semanal</span>
                     </button>
                     <button onClick={() => addTrigger('days')}
-                        className="flex items-center gap-1.5 px-3 py-1.5 bg-purple-500/10 hover:bg-purple-500/20 border border-purple-500/20 hover:border-purple-500/40 text-purple-400 rounded-lg text-xs font-medium transition-all">
-                        <Clock className="w-3.5 h-3.5" /> Diário (horário fixo)
+                        className="flex items-center gap-2 px-4 py-2.5 bg-bg-elevated hover:bg-bg-surface border border-border-subtle hover:border-blue-500/30 text-text-primary rounded-xl text-[11px] font-bold transition-all hover:scale-[1.02] active:scale-[0.98]">
+                        <Clock className="w-4 h-4 text-blue-400" /> 
+                        <span>Diário</span>
                     </button>
                     <button onClick={() => addTrigger('hours')}
-                        className="flex items-center gap-1.5 px-3 py-1.5 bg-blue-500/10 hover:bg-blue-500/20 border border-blue-500/20 hover:border-blue-500/40 text-blue-400 rounded-lg text-xs font-medium transition-all">
-                        <RefreshCw className="w-3.5 h-3.5" /> Intervalo por Horas
+                        className="flex items-center gap-2 px-4 py-2.5 bg-bg-elevated hover:bg-bg-surface border border-border-subtle hover:border-cyan-500/30 text-text-primary rounded-xl text-[11px] font-bold transition-all hover:scale-[1.02] active:scale-[0.98]">
+                        <RefreshCw className="w-4 h-4 text-cyan-400" /> 
+                        <span>Horas</span>
                     </button>
                     <button onClick={() => addTrigger('minutes')}
-                        className="flex items-center gap-1.5 px-3 py-1.5 bg-green-500/10 hover:bg-green-500/20 border border-green-500/20 hover:border-green-500/40 text-green-400 rounded-lg text-xs font-medium transition-all">
-                        <Zap className="w-3.5 h-3.5" /> Intervalo por Minutos
+                        className="flex items-center gap-2 px-4 py-2.5 bg-bg-elevated hover:bg-bg-surface border border-border-subtle hover:border-green-500/30 text-text-primary rounded-xl text-[11px] font-bold transition-all hover:scale-[1.02] active:scale-[0.98]">
+                        <Zap className="w-4 h-4 text-green-400" /> 
+                        <span>Minutos</span>
                     </button>
                     {activeTab === 'advanced' && (
                         <button onClick={() => addTrigger('cron')}
-                            className="flex items-center gap-1.5 px-3 py-1.5 bg-yellow-500/10 hover:bg-yellow-500/20 border border-yellow-500/20 hover:border-yellow-500/40 text-yellow-400 rounded-lg text-xs font-medium transition-all">
-                            <Plus className="w-3.5 h-3.5" /> Custom Cron
+                            className="flex items-center gap-2 px-4 py-2.5 bg-bg-elevated hover:bg-bg-surface border border-border-subtle hover:border-orange-500/30 text-text-primary rounded-xl text-[11px] font-bold transition-all hover:scale-[1.02] active:scale-[0.98]">
+                            <Settings className="w-4 h-4 text-orange-400" /> 
+                            <span>Custom Cron</span>
                         </button>
                     )}
                 </div>
             </div>
 
-            {/* Trigger Cards */}
-            <div className="p-6 space-y-4 max-h-[600px] overflow-auto custom-scrollbar">
+            <div className="p-8 space-y-6 max-h-[500px] overflow-y-auto custom-scrollbar bg-bg-base/10">
                 {triggers.length === 0 ? (
-                    <div className="py-20 text-center">
-                        <div className="w-16 h-16 rounded-full bg-white/5 flex items-center justify-center mx-auto mb-4 border border-white/10">
-                            <Calendar className="w-8 h-8 text-white/20" />
+                    <div className="py-16 text-center">
+                        <div className="w-20 h-20 rounded-full bg-bg-elevated flex items-center justify-center mx-auto mb-4 border border-border-subtle">
+                            <Clock className="w-10 h-10 text-text-muted/20" />
                         </div>
-                        <p className="text-white/30 italic text-sm">Nenhuma regra configurada. O sistema não executará automaticamente.</p>
-                        <p className="text-white/20 text-xs mt-1">Use os botões acima para adicionar uma regra.</p>
+                        <p className="text-text-muted font-bold text-sm uppercase tracking-widest">Nenhuma regra ativa</p>
+                        <p className="text-text-muted/50 text-xs mt-2 font-medium">Configure uma regra para automatizar o sistema</p>
                     </div>
                 ) : (
                     triggers.map((trigger) => (
-                        <div key={trigger.id} className="relative group p-5 rounded-xl border border-white/10 bg-white/5 hover:border-brand-500/30 transition-all hover:bg-white/[0.07]">
-                            {/* Tipo badge */}
-                            <div className="flex items-center justify-between mb-4">
-                                <span className={`text-xs font-bold px-2.5 py-1 rounded-full border ${
-                                    trigger.type === 'weekly' ? 'bg-brand-500/10 text-brand-400 border-brand-500/20' :
-                                    trigger.type === 'days' ? 'bg-purple-500/10 text-purple-400 border-purple-500/20' :
-                                    trigger.type === 'hours' ? 'bg-blue-500/10 text-blue-400 border-blue-500/20' :
-                                    trigger.type === 'minutes' ? 'bg-green-500/10 text-green-400 border-green-500/20' :
-                                    'bg-yellow-500/10 text-yellow-400 border-yellow-500/20'
+                        <div key={trigger.id} className="relative group p-6 rounded-2xl border border-border-subtle bg-bg-surface hover:border-purple-500/40 transition-all hover:shadow-glow shadow-purple-500/5">
+                            <div className="flex items-center justify-between mb-6">
+                                <span className={`text-[10px] font-black uppercase tracking-[0.2em] px-3 py-1.5 rounded-lg border shadow-sm ${
+                                    trigger.type === 'weekly' ? 'bg-purple-500/5 text-purple-400 border-purple-500/20' :
+                                    trigger.type === 'days' ? 'bg-blue-500/5 text-blue-400 border-blue-500/20' :
+                                    trigger.type === 'hours' ? 'bg-cyan-500/5 text-cyan-400 border-cyan-500/20' :
+                                    trigger.type === 'minutes' ? 'bg-green-500/5 text-green-400 border-green-500/20' :
+                                    'bg-orange-500/5 text-orange-400 border-orange-500/20'
                                 }`}>
-                                    {trigger.type === 'weekly' ? '📅 Semanal' :
-                                     trigger.type === 'days' ? '🕐 Diário' :
-                                     trigger.type === 'hours' ? '🔁 Horas' :
-                                     trigger.type === 'minutes' ? '⚡ Minutos' : '⚙️ Cron'}
+                                    {trigger.type} Mode
                                 </span>
 
-                                <div className="flex items-center gap-2">
+                                <div className="flex items-center gap-4">
                                     {activeTab === 'advanced' && (
-                                        <code className="text-xs text-white/30 font-mono bg-black/30 px-2 py-1 rounded">
+                                        <code className="text-[10px] text-purple-400 font-mono bg-purple-500/5 px-2.5 py-1 rounded border border-purple-500/10 font-black">
                                             {toCronExpression(trigger)}
                                         </code>
                                     )}
                                     <button
                                         onClick={() => removeTrigger(trigger.id)}
-                                        className="p-2 text-white/20 hover:text-red-400 hover:bg-red-400/10 rounded-lg transition-all border border-transparent hover:border-red-400/20"
-                                        title="Remover regra"
+                                        className="p-2 text-text-muted hover:text-red-400 hover:bg-red-400/5 rounded-lg transition-all border border-transparent hover:border-red-400/10"
                                     >
                                         <Trash2 className="w-4 h-4" />
                                     </button>
                                 </div>
                             </div>
 
-                            {/* WEEKLY TYPE */}
                             {trigger.type === 'weekly' && (
-                                <div className="space-y-4">
+                                <div className="grid gap-6">
                                     <div>
-                                        <label className="text-[10px] uppercase tracking-wider text-white/40 mb-2 block font-bold">Dias da Semana</label>
-                                        <div className="flex gap-2 flex-wrap">
+                                        <label className="text-[10px] font-black uppercase tracking-widest text-text-muted mb-3 block">Dias da Operação</label>
+                                        <div className="flex gap-2.5 flex-wrap">
                                             {DAY_LABELS.map((label, idx) => (
                                                 <button
                                                     key={idx}
                                                     onClick={() => toggleDay(trigger.id, idx)}
-                                                    className={`w-10 h-10 rounded-lg text-xs font-bold transition-all border ${
+                                                    className={`w-12 h-12 rounded-xl text-[11px] font-black uppercase transition-all border ${
                                                         (trigger.days || []).includes(idx)
-                                                            ? 'bg-brand-500 text-white border-brand-600 shadow-lg shadow-brand-500/20'
-                                                            : 'bg-white/5 text-white/40 border-white/10 hover:border-white/20 hover:text-white/60'
+                                                            ? 'bg-grad-primary text-white border-transparent shadow-purple'
+                                                            : 'bg-bg-elevated text-text-muted border-border-subtle hover:border-text-muted/40 hover:bg-bg-base'
                                                     }`}
                                                 >
                                                     {label}
                                                 </button>
                                             ))}
                                         </div>
-                                        {(trigger.days || []).length > 0 && (
-                                            <p className="text-xs text-white/30 mt-2">
-                                                {(trigger.days || []).map(d => DAY_FULL[d]).join(', ')}
-                                            </p>
-                                        )}
                                     </div>
                                     <div>
-                                        <label className="text-[10px] uppercase tracking-wider text-white/40 mb-2 block font-bold">Horário</label>
+                                        <label className="text-[10px] font-black uppercase tracking-widest text-text-muted mb-3 block">Horário de Início</label>
                                         <input
                                             type="time"
                                             value={trigger.time || '08:00'}
                                             onChange={e => updateTrigger(trigger.id, { time: e.target.value })}
-                                            className="bg-surface-900 border border-white/10 rounded-lg px-3 py-2 text-sm text-white outline-none focus:border-brand-500/50 transition-colors"
+                                            className="bg-bg-elevated border border-border-subtle rounded-xl px-4 py-3 text-sm text-text-primary font-bold outline-none focus:border-purple-500/50 transition-all shadow-sm"
                                         />
-                                    </div>
-                                    <div className="text-xs text-white/25 bg-white/3 rounded-lg px-3 py-2 border border-white/5">
-                                        📋 {describeTrigger(trigger)}
                                     </div>
                                 </div>
                             )}
 
-                            {/* DAILY TYPE */}
                             {trigger.type === 'days' && (
-                                <div className="space-y-3">
-                                    <div>
-                                        <label className="text-[10px] uppercase tracking-wider text-white/40 mb-2 block font-bold">Horário Diário</label>
-                                        <input
-                                            type="time"
-                                            value={String(trigger.value)}
-                                            onChange={e => updateTrigger(trigger.id, { value: e.target.value })}
-                                            className="bg-surface-900 border border-white/10 rounded-lg px-3 py-2 text-sm text-white outline-none focus:border-brand-500/50 transition-colors"
-                                        />
-                                    </div>
-                                    <p className="text-xs text-white/25 bg-white/3 rounded-lg px-3 py-2 border border-white/5">
-                                        📋 Executa todos os dias às {String(trigger.value) || '–'}
-                                    </p>
+                                <div className="space-y-4">
+                                    <label className="text-[10px] font-black uppercase tracking-widest text-text-muted mb-1 block">Execução Diária</label>
+                                    <input
+                                        type="time"
+                                        value={String(trigger.value)}
+                                        onChange={e => updateTrigger(trigger.id, { value: e.target.value })}
+                                        className="bg-bg-elevated border border-border-subtle rounded-xl px-4 py-3 text-sm text-text-primary font-bold outline-none focus:border-blue-500/50 transition-all shadow-sm"
+                                    />
                                 </div>
                             )}
 
-                            {/* HOURS TYPE */}
                             {trigger.type === 'hours' && (
-                                <div className="grid grid-cols-2 gap-4">
-                                    <div>
-                                        <label className="text-[10px] uppercase tracking-wider text-white/40 mb-2 block font-bold">A cada (horas)</label>
+                                <div className="grid grid-cols-2 gap-6">
+                                    <div className="space-y-4">
+                                        <label className="text-[10px] font-black uppercase tracking-widest text-text-muted mb-1 block">Intervalo (Horas)</label>
                                         <input
                                             type="number" min="1" max="24"
                                             value={Number(trigger.value)}
                                             onChange={e => updateTrigger(trigger.id, { value: parseInt(e.target.value) || 1 })}
-                                            className="w-full bg-surface-900 border border-white/10 rounded-lg px-3 py-2 text-sm text-white outline-none focus:border-brand-500/50"
+                                            className="w-full bg-bg-elevated border border-border-subtle rounded-xl px-4 py-3 text-sm text-text-primary font-bold outline-none focus:border-cyan-500/50 transition-all"
                                         />
                                     </div>
-                                    <div>
-                                        <label className="text-[10px] uppercase tracking-wider text-white/40 mb-2 block font-bold">No minuto</label>
+                                    <div className="space-y-4">
+                                        <label className="text-[10px] font-black uppercase tracking-widest text-text-muted mb-1 block">Minuto Exato</label>
                                         <input
                                             type="number" min="0" max="59"
                                             value={trigger.minute ?? 0}
                                             onChange={e => updateTrigger(trigger.id, { minute: parseInt(e.target.value) || 0 })}
-                                            className="w-full bg-surface-900 border border-white/10 rounded-lg px-3 py-2 text-sm text-white outline-none focus:border-brand-500/50"
+                                            className="w-full bg-bg-elevated border border-border-subtle rounded-xl px-4 py-3 text-sm text-text-primary font-bold outline-none focus:border-cyan-500/50 transition-all"
                                         />
-                                    </div>
-                                    <div className="col-span-2 text-xs text-white/25 bg-white/3 rounded-lg px-3 py-2 border border-white/5">
-                                        📋 Executa a cada {trigger.value}h no minuto {trigger.minute ?? 0}
                                     </div>
                                 </div>
                             )}
 
-                            {/* MINUTES TYPE */}
                             {trigger.type === 'minutes' && (
-                                <div className="space-y-3">
+                                <div className="space-y-6">
                                     <div>
-                                        <label className="text-[10px] uppercase tracking-wider text-white/40 mb-2 block font-bold">A cada (minutos)</label>
+                                        <label className="text-[10px] font-black uppercase tracking-widest text-text-muted mb-4 block">Intervalo de Varredura</label>
                                         <div className="flex gap-3 flex-wrap">
-                                            {[10, 15, 20, 30, 45, 60].map(v => (
+                                            {[10, 15, 30, 45, 60].map(v => (
                                                 <button
                                                     key={v}
                                                     onClick={() => updateTrigger(trigger.id, { value: v })}
-                                                    className={`px-3 py-1.5 rounded-lg text-sm font-bold transition-all border ${
+                                                    className={`px-5 py-2.5 rounded-xl text-xs font-black transition-all border ${
                                                         Number(trigger.value) === v
-                                                            ? 'bg-green-500 text-white border-green-600'
-                                                            : 'bg-white/5 text-white/40 border-white/10 hover:border-white/20'
+                                                            ? 'bg-green-500 text-white border-transparent shadow-glow shadow-green-500/20'
+                                                            : 'bg-bg-elevated text-text-muted border-border-subtle hover:border-green-500/30'
                                                     }`}
                                                 >
-                                                    {v}min
+                                                    {v}m
                                                 </button>
                                             ))}
                                             <input
                                                 type="number" min="1" max="120"
                                                 value={Number(trigger.value)}
                                                 onChange={e => updateTrigger(trigger.id, { value: parseInt(e.target.value) || 10 })}
-                                                className="w-20 bg-surface-900 border border-white/10 rounded-lg px-3 py-1.5 text-sm text-white outline-none focus:border-brand-500/50"
+                                                className="w-24 bg-bg-elevated border border-border-subtle rounded-xl px-4 py-2.5 text-xs text-text-primary font-bold outline-none focus:border-green-500/50"
                                                 placeholder="Custom"
                                             />
                                         </div>
                                     </div>
-                                    <p className="text-xs text-white/25 bg-white/3 rounded-lg px-3 py-2 border border-white/5">
-                                        📋 Executa a cada {trigger.value} minutos
-                                    </p>
                                 </div>
                             )}
 
-                            {/* CRON TYPE */}
                             {trigger.type === 'cron' && (
-                                <div className="space-y-3">
-                                    <div>
-                                        <label className="text-[10px] uppercase tracking-wider text-white/40 mb-2 block font-bold">Expressão Cron (UTC-3)</label>
-                                        <input
-                                            type="text"
-                                            placeholder="0 8,18 * * 1-5"
-                                            value={String(trigger.value)}
-                                            onChange={e => updateTrigger(trigger.id, { value: e.target.value })}
-                                            className="w-full bg-surface-900 border border-white/10 rounded-lg px-3 py-2 text-sm text-white font-mono outline-none focus:border-brand-500/50"
-                                        />
-                                    </div>
+                                <div className="space-y-4">
+                                    <label className="text-[10px] font-black uppercase tracking-widest text-text-muted mb-1 block">Cron Expression (Linux Default)</label>
+                                    <input
+                                        type="text"
+                                        placeholder="0 8,18 * * 1-5"
+                                        value={String(trigger.value)}
+                                        onChange={e => updateTrigger(trigger.id, { value: e.target.value })}
+                                        className="w-full bg-bg-elevated border border-border-subtle rounded-xl px-4 py-3 text-sm text-text-primary font-mono font-black outline-none focus:border-orange-500/50 transition-all"
+                                    />
                                     <div className="flex gap-2 flex-wrap">
-                                        {['0 8 * * *', '0 8,18 * * *', '0 8,12,18 * * *', '0 8,18 * * 1-5'].map(ex => (
+                                        {['0 8 * * *', '0 8,18 * * 1-5'].map(ex => (
                                             <button
                                                 key={ex}
                                                 onClick={() => updateTrigger(trigger.id, { value: ex })}
-                                                className="px-2 py-1 text-xs font-mono bg-white/5 border border-white/10 text-white/40 hover:border-yellow-400/30 hover:text-yellow-400 rounded transition-all"
+                                                className="px-3 py-1.5 text-[9px] font-black font-mono bg-bg-base border border-border-subtle text-text-muted hover:text-orange-400 hover:border-orange-500/30 rounded-lg transition-all"
                                             >{ex}</button>
                                         ))}
                                     </div>
                                 </div>
                             )}
+
+                            <div className="mt-6 flex items-center gap-2 pt-4 border-t border-border-subtle/50 text-text-muted/60">
+                                <Info className="w-3.5 h-3.5" />
+                                <span className="text-[10px] font-bold uppercase tracking-wide">{describeTrigger(trigger)}</span>
+                            </div>
                         </div>
                     ))
                 )}
             </div>
 
-            {/* Summary bar */}
-            {triggers.length > 0 && (
-                <div className="px-6 py-3 border-t border-white/5 bg-white/2">
-                    <p className="text-xs text-white/30">
-                        <span className="text-white/50 font-semibold">{triggers.length} regra{triggers.length !== 1 ? 's' : ''} ativa{triggers.length !== 1 ? 's' : ''}: </span>
-                        {triggers.map(t => describeTrigger(t)).join(' · ')}
+            <div className="px-8 py-6 border-t border-border-subtle bg-bg-elevated/10 flex flex-col sm:flex-row items-center justify-between gap-6">
+                <div className="flex flex-col">
+                    <p className="text-[10px] font-black text-text-muted uppercase tracking-widest mb-1">Status da Agenda</p>
+                    <p className="text-xs font-bold text-text-primary">
+                        {triggers.length > 0 ? (
+                            <span className="flex items-center gap-2 text-green-400">
+                                <span className="w-1.5 h-1.5 rounded-full bg-green-400 animate-pulse" />
+                                {triggers.length} regrada{triggers.length !== 1 ? 's' : ''} ativa{triggers.length !== 1 ? 's' : ''} no pipeline
+                            </span>
+                        ) : (
+                            <span className="text-text-muted opacity-40">Nenhuma automação ativa</span>
+                        )}
                     </p>
                 </div>
-            )}
-
-            {/* Save button */}
-            <div className="px-6 py-4 border-t border-white/5 bg-white/2 flex items-center justify-between">
-                <p className="text-xs text-white/25">⚡ Ao salvar, as regras anteriores são substituídas imediatamente.</p>
                 <button
                     onClick={() => onSave(triggers)}
                     disabled={saving}
-                    className="flex items-center gap-2 px-8 py-3 bg-brand-500 hover:bg-brand-600 text-white rounded-lg font-bold text-sm tracking-wide transition-all shadow-xl shadow-brand-500/20 active:scale-95 disabled:opacity-50 disabled:active:scale-100"
+                    className={`
+                        flex items-center gap-3 px-10 py-4 rounded-xl font-black text-xs uppercase tracking-[0.2em] transition-all shadow-purple hover:scale-[1.02] active:scale-[0.98]
+                        ${saving ? 'bg-bg-elevated text-text-muted' : 'bg-grad-primary text-white'}
+                    `}
                 >
                     {saving ? <Loader2 className="w-4 h-4 animate-spin" /> : <Save className="w-4 h-4" />}
-                    SALVAR AGENDA
+                    Salvar Alterações
                 </button>
             </div>
         </div>
     );
+}
+
+interface TriggerEditorProps {
+    triggers: TriggerRule[];
+    onSave: (triggers: TriggerRule[]) => void;
+    saving?: boolean;
 }

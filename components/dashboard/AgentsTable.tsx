@@ -26,22 +26,22 @@ export function AgentsTable({ initialRuns }: { initialRuns: Run[] }) {
 
     return (
         <div className="flex flex-col gap-4">
-            <div className="flex justify-between items-center">
-                <div className="flex items-center gap-3">
-                    <label className="text-sm text-zinc-400 font-medium">Filtrar por Status:</label>
+            <div className="flex flex-col sm:flex-row sm:justify-between sm:items-center gap-4">
+                <div className="flex flex-col sm:flex-row sm:items-center gap-3">
+                    <label className="text-sm text-zinc-400 font-medium whitespace-nowrap">Filtrar por Status:</label>
                     <select
-                        className="bg-[#161622] border border-zinc-800 text-zinc-200 text-sm rounded-lg focus:ring-emerald-500 focus:border-emerald-500 block p-2"
+                        className="bg-[#161622] border border-zinc-800 text-zinc-200 text-sm rounded-lg focus:ring-emerald-500 focus:border-emerald-500 block p-2 w-full sm:w-auto"
                         value={filterStatus}
                         onChange={(e) => setFilterStatus(e.target.value)}
                     >
-                        <option value="ALL">Todos</option>
+                        <option value="ALL">Todos os Status</option>
                         <option value="SUCCESS">Sucesso</option>
                         <option value="FAILED">Falha</option>
                         <option value="RUNNING">Executando</option>
                     </select>
                 </div>
-                <div className="text-sm text-zinc-500">
-                    Mostrando {filteredRuns.length} log(s)
+                <div className="text-sm text-zinc-500 font-medium px-1">
+                    Mostrando {filteredRuns.length} registro(s)
                 </div>
             </div>
 

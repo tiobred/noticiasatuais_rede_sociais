@@ -82,6 +82,13 @@ export async function runPipeline(accountId: string): Promise<{
 
     // Ler contas do env para obter os credenciais do Instagram
     const allAccountsStr = process.env.INSTAGRAM_ACCOUNTS || '[]';
+    
+    // Verificação de ambiente localhost (Meta API exige URLs públicas)
+    const nextAuthUrl = process.env.NEXTAUTH_URL || 'http://localhost:3000';
+    if (nextAuthUrl.includes('localhost') || nextAuthUrl.includes('127.0.0.1')) {
+        console.warn(`[orchestrator|${normalizedAccountId}] ⚠️ AMBIENTE LOCAL DETECTADO (${nextAuthUrl}). A publicação no Instagram (Stories/Reels) provavelmente falhará porque a Meta não consegue acessar arquivos do seu computador. Use um tunnel (ngrok) ou faça deploy no VPS.`);
+    }
+
     let allAccounts: { id: string, name: string, userId: string, accessToken: string }[] = [];
     try {
         allAccounts = JSON.parse(allAccountsStr);
@@ -265,7 +272,7 @@ export async function runPipeline(accountId: string): Promise<{
 
         const dbPendingPosts = await prisma.post.findMany({
             where: { accountId: normalizedAccountId, status: PostStatus.PENDING },
-            orderBy: { createdAt: 'desc' },
+            orderBy: { createdAt: 'asc' }, // Process OLDEST pending first to avoid starvation
             take: 10
         });
 
@@ -273,7 +280,9 @@ export async function runPipeline(accountId: string): Promise<{
             console.log(`[orchestrator|${normalizedAccountId}] Nenhuma notícia nova para analisar e nenhum post pendente.`);
         } else {
             // ─── ETAPA 2: Análise Consolidada ─────────────────────
-            console.log(`[orchestrator|${normalizedAccountId}] Iniciando análise: ${newItems.length} novos, ${dbPendingPosts.length} pendentes no banco.`);
+            const newsCount = newItems.filter(p => !(p.metadata as any)?.postOriginal).length;
+            const originalCount = newItems.length - newsCount + dbPendingPosts.length;
+            console.log(`[orchestrator|${normalizedAccountId}] Iniciando análise: ${newItems.length} totais (${newsCount} notícias, ${originalCount} originais/pendentes).`);
 
             const currentPendingPosts: any[] = [];
 
@@ -365,7 +374,9 @@ export async function runPipeline(accountId: string): Promise<{
             }
 
             try {
-                if (postsToAnalyze.length > 0) {
+                const isNewsEnabled = configMap['PUBLISH_NEWS_ENABLED'] !== false;
+            
+                if (isNewsEnabled && postsToAnalyze.length > 0) {
                     console.log(`[orchestrator|${normalizedAccountId}] Chamando summarizer para ${postsToAnalyze.length} notícias...`);
                     batchResult = await analysis.summarizeBatch(
                         postsToAnalyze.map(p => ({ title: p.title, body: p.body }))
@@ -391,6 +402,8 @@ export async function runPipeline(accountId: string): Promise<{
                         }
                     }
                     console.log(`[orchestrator|${normalizedAccountId}] ✅ Posts atualizados para PROCESSED.`);
+                } else if (!isNewsEnabled) {
+                    console.log(`[orchestrator|${normalizedAccountId}] Consolidação de notícias ignorada (PUBLISH_NEWS_ENABLED=false).`);
                 } else {
                     console.log(`[orchestrator|${normalizedAccountId}] Nenhuma notícia nova para consolidar.`);
                 }
@@ -405,6 +418,7 @@ export async function runPipeline(accountId: string): Promise<{
                 status: PostStatus.PROCESSED,
                 accountId: normalizedAccountId
             },
+            orderBy: { createdAt: 'asc' },
             take: 20
         })).filter(p => {
             const t = (p.title || '').toUpperCase();
@@ -455,12 +469,12 @@ export async function runPipeline(accountId: string): Promise<{
                 try {
                     const igPublisher = new InstagramPublisher(targetAccount.accessToken, targetAccount.userId);
                     const carouselData = [];
-                    const composedSlideItems: { imageUrl: string; postId: string }[] = [];
                     for (const c of postsToPublish) {
                         const isOriginal = (c.metadata as any)?.postOriginal === true;
                         const originalUsername = (c.metadata as any)?.originalUsername;
                         const mediaType = (c.metadata as any)?.mediaType;
                         const isVideo = mediaType === 'VIDEO' || mediaType === 'REELS' || c.imageUrl?.includes('.mp4') || c.imageUrl?.includes('video');
+                        const isInstagramCDN = c.imageUrl?.includes('cdninstagram.com') || c.imageUrl?.includes('scontent-');
 
                         // --- CHANNEL ISOLATION CHECK (per post/target) ---
                         const targetChannels = (c.metadata as any)?.targetChannels;
@@ -491,9 +505,13 @@ export async function runPipeline(accountId: string): Promise<{
                                     let videoToPublish = c.imageUrl;
                                     let tempFile = '';
 
-                                    const rehostResult = await rehostVideo(c.imageUrl!);
-                                    videoToPublish = rehostResult.publicUrl;
-                                    tempFile = rehostResult.filename;
+                                    if (isInstagramCDN) {
+                                        console.log(`[orchestrator|${normalizedAccountId}] Usando URL do Instagram diretamente para Reels.`);
+                                    } else {
+                                        const rehostResult = await rehostVideo(c.imageUrl!);
+                                        videoToPublish = rehostResult.publicUrl;
+                                        tempFile = rehostResult.filename;
+                                    }
 
                                     const collaborators = originalUsername ? [originalUsername] : undefined;
                                     const result = await igPublisher.publishVideo(videoToPublish!, caption, originalUsername, collaborators);
@@ -523,12 +541,22 @@ export async function runPipeline(accountId: string): Promise<{
                                     }
                                 } else if (isFeedEnabled && c.imageUrl) {
                                     console.log(`[orchestrator|${normalizedAccountId}] Publicando vídeo no Feed original de @${originalUsername}`);
-                                    const rehostResult = await rehostVideo(c.imageUrl);
-                                    const collaborators = originalUsername ? [originalUsername] : undefined;
-                                    const result = await igPublisher.publishVideo(rehostResult.publicUrl, caption, originalUsername, collaborators);
+                                    let videoToPublish = c.imageUrl;
+                                    let tempFile = '';
 
-                                    if (rehostResult.filename) {
-                                        await deleteHostedFile(rehostResult.filename);
+                                    if (isInstagramCDN) {
+                                        console.log(`[orchestrator|${normalizedAccountId}] Usando URL do Instagram diretamente para Feed Video.`);
+                                    } else {
+                                        const rehostResult = await rehostVideo(c.imageUrl!);
+                                        videoToPublish = rehostResult.publicUrl;
+                                        tempFile = rehostResult.filename;
+                                    }
+
+                                    const collaborators = originalUsername ? [originalUsername] : undefined;
+                                    const result = await igPublisher.publishVideo(videoToPublish!, caption, originalUsername, collaborators);
+
+                                    if (tempFile) {
+                                        await deleteHostedFile(tempFile);
                                     }
 
                                     if (result?.postId) {
@@ -553,25 +581,36 @@ export async function runPipeline(accountId: string): Promise<{
                                 }
                             } else if (isFeedEnabled && c.imageUrl) {
                                 console.log(`[orchestrator|${normalizedAccountId}] Re-hospedando imagem de @${originalUsername} para o Feed`);
-                                const rehosted = await rehostImage(c.imageUrl, 'ig-original');
-                                const collaborators = originalUsername ? [originalUsername] : undefined;
-                                const result = await igPublisher.publishFeed(rehosted, caption, originalUsername, collaborators);
-                                if (result?.postId) {
+                                try {
+                                    const rehosted = await rehostImage(c.imageUrl, 'ig-original');
+                                    const collaborators = originalUsername ? [originalUsername] : undefined;
+                                    const result = await igPublisher.publishFeed(rehosted, caption, originalUsername, collaborators);
+                                    if (result?.postId) {
+                                        await prisma.socialPublication.create({
+                                            data: {
+                                                postId: c.id,
+                                                channel: Channel.INSTAGRAM_FEED,
+                                                accountId: normalizedAccountId,
+                                                externalId: result.postId,
+                                                status: 'SUCCESS'
+                                            }
+                                        });
+                                        await prisma.post.update({
+                                            where: { id: c.id },
+                                            data: { status: PostStatus.PUBLISHED }
+                                        });
+                                        postsPublished++;
+                                        console.log(`[orchestrator|${normalizedAccountId}] ✅ Imagem Feed original publicada.`);
+                                    }
+                                } catch (origErr: any) {
+                                    console.error(`[orchestrator|${normalizedAccountId}] ❌ Falha ao publicar Feed original:`, origErr.message);
                                     await prisma.socialPublication.create({
-                                        data: {
-                                            postId: c.id,
-                                            channel: Channel.INSTAGRAM_FEED,
-                                            accountId: normalizedAccountId,
-                                            externalId: result.postId,
-                                            status: 'SUCCESS'
-                                        }
-                                    });
-                                    await prisma.post.update({
-                                        where: { id: c.id },
-                                        data: { status: PostStatus.PUBLISHED }
-                                    });
-                                    postsPublished++;
-                                    console.log(`[orchestrator|${normalizedAccountId}] ✅ Imagem Feed original publicada.`);
+                                        data: { postId: c.id, channel: Channel.INSTAGRAM_FEED, accountId: normalizedAccountId, status: 'FAILED', error: origErr.message }
+                                    }).catch(() => {});
+                                    await prisma.post.updateMany({
+                                        where: { id: c.id, status: { not: 'PUBLISHED' } },
+                                        data: { status: PostStatus.FAILED }
+                                    }).catch(() => {});
                                 }
                             } else {
                                 console.log(`[orchestrator|${normalizedAccountId}] ⏭️ Post original @${originalUsername} pulado (MediaType: ${mediaType}, ReelsEnabled: ${isReelsEnabled}, FeedEnabled: ${isFeedEnabled})`);
@@ -594,67 +633,95 @@ export async function runPipeline(accountId: string): Promise<{
 
                     // Publicar Carrossel se houver itens compostos (somente Feed)
                     if (isFeedEnabled && carouselData.length > 0) {
-                        for (let i = 0; i < carouselData.length; i++) {
-                            const c = carouselData[i];
-                            // --- CHANNEL ISOLATION CHECK for composed items ---
-                            const tChannels = (c.metadata as any)?.targetChannels;
-                            if (tChannels && tChannels.feed === false) {
-                                console.log(`[orchestrator|${normalizedAccountId}] ⏭️ Pulando Feed para post ${c.postId} (canal desabilitado para este alvo).`);
-                                continue;
+                        const composedSlideItems: { imageUrl: string; postId: string; _localFile?: string }[] = [];
+                        
+                        try {
+                            for (let i = 0; i < carouselData.length; i++) {
+                                const c = carouselData[i];
+                                // --- CHANNEL ISOLATION CHECK for composed items ---
+                                const tChannels = (c.metadata as any)?.targetChannels;
+                                if (tChannels && tChannels.feed === false) {
+                                    console.log(`[orchestrator|${normalizedAccountId}] ⏭️ Pulando Feed para post ${c.postId} (canal desabilitado para este alvo).`);
+                                    continue;
+                                }
+
+                                // --- DE-DUPLICATION CHECK for composed items ---
+                                if (await isAlreadyPublished(c.postId, c.originalUrl, Channel.INSTAGRAM_FEED)) {
+                                    console.log(`[orchestrator|${normalizedAccountId}] ⏭️ Pulando Feed para post ${c.postId} (já publicado anteriormente como parte de carrossel).`);
+                                    continue;
+                                }
+                                
+                                console.log(`[orchestrator|${normalizedAccountId}] Compondo slide ${i + 1} para Carrossel: ${c.title}`);
+                                const composed = await composeSlideImage(
+                                    c.imageUrl || FALLBACK_IMAGE,
+                                    c.title,
+                                    c.summary,
+                                    i,
+                                    fLayout || { fontColor: configMap['primaryColor'] || '#ffffff' }
+                                );
+                                
+                                composedSlideItems.push({ 
+                                    imageUrl: composed.publicUrl, 
+                                    postId: c.postId,
+                                    _localFile: (composed as any)._localFile 
+                                });
                             }
 
-                            // --- DE-DUPLICATION CHECK for composed items ---
-                            if (await isAlreadyPublished(c.postId, c.originalUrl, Channel.INSTAGRAM_FEED)) {
-                                console.log(`[orchestrator|${normalizedAccountId}] ⏭️ Pulando Feed para post ${c.postId} (já publicado anteriormente como parte de carrossel).`);
-                                continue;
-                            }
-                            console.log(`[orchestrator|${normalizedAccountId}] Compondo slide ${i + 1} para Carrossel: ${c.title}`);
-                            const composed = await composeSlideImage(
-                                c.imageUrl,
-                                c.title,
-                                c.summary,
-                                i,
-                                fLayout || { fontColor: configMap['primaryColor'] || '#ffffff' }
-                            );
-                            composedSlideItems.push({ imageUrl: composed.publicUrl, postId: c.postId });
-                        }
+                            if (composedSlideItems.length > 0) {
+                                try {
+                                    const globalCaption = batchResult?.globalCaption || 'Confira as novidades do dia!';
 
-                        if (composedSlideItems.length > 0) {
-                            try {
-                                const globalCaption = batchResult?.globalCaption || 'Confira as novidades do dia!';
-
-                                if (composedSlideItems.length === 1) {
-                                    const pubResult = await igPublisher.publishFeed(composedSlideItems[0].imageUrl, globalCaption);
-                                    if (pubResult?.postId) {
-                                        await prisma.socialPublication.create({
-                                            data: { postId: composedSlideItems[0].postId, channel: Channel.INSTAGRAM_FEED, accountId: normalizedAccountId, externalId: pubResult.postId, status: 'SUCCESS' }
-                                        });
-                                        await prisma.post.update({ where: { id: composedSlideItems[0].postId }, data: { status: PostStatus.PUBLISHED } });
-                                        postsPublished++;
-                                    }
-                                } else {
-                                    const pubResult = await igPublisher.publishCarousel(
-                                        composedSlideItems.map(item => ({ imageUrl: item.imageUrl })),
-                                        globalCaption
-                                    );
-                                    if (pubResult?.postId) {
-                                        for (const item of composedSlideItems) {
+                                    if (composedSlideItems.length === 1) {
+                                        const pubResult = await igPublisher.publishFeed(composedSlideItems[0].imageUrl, globalCaption);
+                                        if (pubResult?.postId) {
                                             await prisma.socialPublication.create({
-                                                data: { postId: item.postId, channel: Channel.INSTAGRAM_FEED, accountId: normalizedAccountId, externalId: pubResult.postId, status: 'SUCCESS' }
+                                                data: { postId: composedSlideItems[0].postId, channel: Channel.INSTAGRAM_FEED, accountId: normalizedAccountId, externalId: pubResult.postId, status: 'SUCCESS' }
                                             });
-                                            await prisma.post.update({ where: { id: item.postId }, data: { status: PostStatus.PUBLISHED } });
+                                            await prisma.post.update({ where: { id: composedSlideItems[0].postId }, data: { status: PostStatus.PUBLISHED } });
+                                            postsPublished++;
                                         }
-                                        postsPublished++;
+                                    } else {
+                                        const pubResult = await igPublisher.publishCarousel(
+                                            composedSlideItems.map(item => ({ imageUrl: item.imageUrl })),
+                                            globalCaption
+                                        );
+                                        if (pubResult?.postId) {
+                                            for (const item of composedSlideItems) {
+                                                await prisma.socialPublication.create({
+                                                    data: { postId: item.postId, channel: Channel.INSTAGRAM_FEED, accountId: normalizedAccountId, externalId: pubResult.postId, status: 'SUCCESS' }
+                                                });
+                                                await prisma.post.update({ where: { id: item.postId }, data: { status: PostStatus.PUBLISHED } });
+                                            }
+                                            postsPublished++;
+                                        }
+                                    }
+                                    console.log(`[orchestrator|${normalizedAccountId}] ✅ Carrossel Instagram publicado.`);
+                                } catch (carouselErr: any) {
+                                    console.error(`[orchestrator|${normalizedAccountId}] ❌ Erro ao publicar Carrossel Instagram:`, carouselErr.message);
+                                    for (const item of composedSlideItems) {
+                                        await prisma.socialPublication.create({
+                                            data: { postId: item.postId, channel: Channel.INSTAGRAM_FEED, accountId: normalizedAccountId, status: 'FAILED', error: carouselErr.message }
+                                        }).catch(() => {});
+                                        await prisma.post.updateMany({
+                                            where: { id: item.postId, status: { not: 'PUBLISHED' } },
+                                            data: { status: PostStatus.FAILED }
+                                        }).catch(() => {});
                                     }
                                 }
-                                console.log(`[orchestrator|${normalizedAccountId}] ✅ Carrossel Instagram publicado.`);
-                            } catch (carouselErr) {
-                                console.error(`[orchestrator|${normalizedAccountId}] ❌ Erro ao publicar Carrossel Instagram:`, (carouselErr as Error).message);
+                            }
+                        } finally {
+                            // Limpar todos os arquivos locais dos slides
+                            for (const item of composedSlideItems) {
+                                if (item._localFile) {
+                                    await deleteHostedFile(item._localFile).catch(() => {});
+                                }
                             }
                         }
+                    } else {
+                        console.log(`[orchestrator|${normalizedAccountId}] ⏭️ Pulando Instagram Feed/Reels (canais desativados ou sem conteúdo)`);
                     }
-                } catch (err) {
-                    console.error(`[orchestrator|${normalizedAccountId}] ❌ Erro fatal processando Instagram Feed/Reels:`, (err as Error).message);
+                } catch (igErr: any) {
+                    console.error(`[orchestrator|${normalizedAccountId}] ❌ Erro geral no bloco do Instagram Feed:`, igErr.message);
                 }
             } else {
                 console.log(`[orchestrator|${normalizedAccountId}] ⏭️ Pulando Instagram Feed/Reels (canais desativados)`);
@@ -708,24 +775,61 @@ export async function runPipeline(accountId: string): Promise<{
 
                             if (isVideo && item.imageUrl) {
                                 // Story de Vídeo
-                                 console.log(`[orchestrator|${normalizedAccountId}] Re-hospedando vídeo para Story (com normalização)...`);
-                                 const rehostResult = await rehostVideo(item.imageUrl, 'story-vid', true);
-                                try {
-                                    const pubResult = await igPublisher.publishStoryVideo(rehostResult.publicUrl);
-                                    externalId = pubResult.postId;
-                                    published = true;
-                                    console.log(`[orchestrator|${normalizedAccountId}] Story Vídeo publicado: ${externalId}`);
-                                } finally {
-                                    await deleteHostedFile(rehostResult.filename);
+                                const isInstagramCDNVideo = item.imageUrl.includes('cdninstagram.com') || item.imageUrl.includes('scontent-');
+                                if (isInstagramCDNVideo) {
+                                    // Usar URL do CDN diretamente — Meta API aceita
+                                    console.log(`[orchestrator|${normalizedAccountId}] Post original (vídeo CDN) — usando URL diretamente para Story video.`);
+                                    try {
+                                        const pubResult = await igPublisher.publishStoryVideo(item.imageUrl);
+                                        externalId = pubResult.postId;
+                                        published = true;
+                                        console.log(`[orchestrator|${normalizedAccountId}] Story Vídeo CDN publicado: ${externalId}`);
+                                    } catch (vidErr: any) {
+                                        console.warn(`[orchestrator|${normalizedAccountId}] ⚠️ Falha com URL CDN, tentando rehostear: ${vidErr.message}`);
+                                        const rehostResult = await rehostVideo(item.imageUrl, 'story-vid', true);
+                                        try {
+                                            const pubResult = await igPublisher.publishStoryVideo(rehostResult.publicUrl);
+                                            externalId = pubResult.postId;
+                                            published = true;
+                                        } finally {
+                                            await deleteHostedFile(rehostResult.filename);
+                                        }
+                                    }
+                                } else {
+                                    // Rehostar vídeo para URL pública
+                                    console.log(`[orchestrator|${normalizedAccountId}] Re-hospedando vídeo para Story (com normalização)...`);
+                                    const rehostResult = await rehostVideo(item.imageUrl, 'story-vid', true);
+                                    try {
+                                        const pubResult = await igPublisher.publishStoryVideo(rehostResult.publicUrl);
+                                        externalId = pubResult.postId;
+                                        published = true;
+                                        console.log(`[orchestrator|${normalizedAccountId}] Story Vídeo publicado: ${externalId}`);
+                                    } finally {
+                                        await deleteHostedFile(rehostResult.filename);
+                                    }
                                 }
                             } else {
                                 const storyImgUrl = item.imageUrl || FALLBACK_IMAGE;
                                 console.log(`[orchestrator|${normalizedAccountId}] Compondo imagem para Story (usando fallback se necessário)...`);
 
                                 let finalStoryUrl: string;
+                                let localFileToDelete: string | null = null;
+
                                 if (isOriginal) {
-                                    const storyComposed = await composeOriginalStoryImage(storyImgUrl);
-                                    finalStoryUrl = storyComposed.publicUrl;
+                                    const isInstagramCDN = storyImgUrl.includes('cdninstagram.com') || storyImgUrl.includes('scontent-');
+                                    if (isInstagramCDN) {
+                                        console.log(`[orchestrator|${normalizedAccountId}] Post original — usando URL CDN do Instagram diretamente para Story.`);
+                                        finalStoryUrl = storyImgUrl;
+                                    } else {
+                                        try {
+                                            const storyComposed = await composeOriginalStoryImage(storyImgUrl);
+                                            finalStoryUrl = storyComposed.publicUrl;
+                                            localFileToDelete = (storyComposed as any)._localFile;
+                                        } catch (composeErr: any) {
+                                            console.warn(`[orchestrator|${normalizedAccountId}] ⚠️ Falha ao compor story (${composeErr.message}). Usando URL original como fallback.`);
+                                            finalStoryUrl = storyImgUrl;
+                                        }
+                                    }
                                 } else {
                                     const storyComposed = await composeStoryImage(
                                         storyImgUrl,
@@ -734,12 +838,19 @@ export async function runPipeline(accountId: string): Promise<{
                                         sLayout || { fontColor: configMap['primaryColor'] || '#ffffff' }
                                     );
                                     finalStoryUrl = storyComposed.publicUrl;
+                                    localFileToDelete = (storyComposed as any)._localFile;
                                 }
 
-                                const pubResult = await igPublisher.publishStory(finalStoryUrl);
-                                externalId = pubResult.postId;
-                                published = true;
-                                console.log(`[orchestrator|${normalizedAccountId}] Story Imagem publicado: ${externalId}`);
+                                try {
+                                    const pubResult = await igPublisher.publishStory(finalStoryUrl);
+                                    externalId = pubResult.postId;
+                                    published = true;
+                                    console.log(`[orchestrator|${normalizedAccountId}] Story Imagem publicado: ${externalId}`);
+                                } finally {
+                                    if (localFileToDelete) {
+                                        await deleteHostedFile(localFileToDelete);
+                                    }
+                                }
                             }
 
                             if (published) {
@@ -771,7 +882,6 @@ export async function runPipeline(accountId: string): Promise<{
                             console.error(`[orchestrator|${normalizedAccountId}] ❌ Erro no item ${i + 1} do Story:`, itemErr.message);
                             if (itemErr.response?.data) console.error(JSON.stringify(itemErr.response.data));
                             
-                            // Registrar falha no banco para não reprocessar infinitamente e avisar no Audit Log
                             await prisma.socialPublication.create({
                                 data: {
                                     postId: item.id,
@@ -780,6 +890,11 @@ export async function runPipeline(accountId: string): Promise<{
                                     status: 'FAILED',
                                     error: itemErr.message || 'Erro desconhecido'
                                 }
+                            }).catch(() => { });
+                            
+                            await prisma.post.updateMany({
+                                where: { id: item.id, status: { not: 'PUBLISHED' } },
+                                data: { status: PostStatus.FAILED }
                             }).catch(() => { });
                             
                             await prisma.auditLog.create({
@@ -842,6 +957,15 @@ export async function runPipeline(accountId: string): Promise<{
                     postsPublished++;
                 } catch (waErr: any) {
                     console.error(`[orchestrator|${normalizedAccountId}] ❌ Erro WhatsApp:`, (waErr as Error).message);
+                    for (const p of allowedWhatsappPosts) {
+                        await prisma.socialPublication.create({
+                            data: { postId: p.id, channel: Channel.WHATSAPP, accountId: normalizedAccountId, status: 'FAILED', error: waErr.message }
+                        }).catch(() => {});
+                        await prisma.post.updateMany({
+                            where: { id: p.id, status: { not: 'PUBLISHED' } },
+                            data: { status: PostStatus.FAILED }
+                        }).catch(() => {});
+                    }
                 }
             } else {
                 console.log(`[orchestrator|${normalizedAccountId}] ⏭️ Pulando WhatsApp (desativado ou herança global false)`);
@@ -925,6 +1049,13 @@ export async function runPipeline(accountId: string): Promise<{
                                 console.log(`[orchestrator|${normalizedAccountId}] ✅ YouTube Short publicado para: ${p.title}`);
                             } catch (itemErr: any) {
                                 console.error(`[orchestrator|${normalizedAccountId}] ❌ Erro ao publicar Short para ${p.id}:`, itemErr.message);
+                                await prisma.socialPublication.create({
+                                    data: { postId: p.id, channel: Channel.YOUTUBE_SHORTS, accountId: normalizedAccountId, status: 'FAILED', error: itemErr.message }
+                                }).catch(() => {});
+                                await prisma.post.updateMany({
+                                    where: { id: p.id, status: { not: 'PUBLISHED' } },
+                                    data: { status: PostStatus.FAILED }
+                                }).catch(() => {});
                             }
                         }
                     } else {
@@ -940,7 +1071,7 @@ export async function runPipeline(accountId: string): Promise<{
         }
 
         // Atualizar status do run para SUCCESS - movido para fora do bloco else para garantir que sempre rode
-        await prisma.agentRun.update({
+        await prisma.agentRun.updateMany({
             where: { id: run.id },
             data: {
                 status: RunStatus.SUCCESS,
@@ -960,7 +1091,7 @@ export async function runPipeline(accountId: string): Promise<{
         try {
             const runId = (run as any)?.id;
             if (runId) {
-                await prisma.agentRun.update({
+                await prisma.agentRun.updateMany({
                     where: { id: runId },
                     data: { status: RunStatus.FAILED, error, finishedAt: new Date() },
                 });
