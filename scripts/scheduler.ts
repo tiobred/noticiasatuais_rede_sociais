@@ -129,6 +129,7 @@ async function startScheduler() {
                     
                     const configMap = await getMergedConfigs(account.id, relevantKeys);
                     const isActive = configMap['isActive'] !== false;
+                    // schedulerEnabled: default TRUE se nunca foi configurado (undefined)
                     const schedulerEnabled = configMap['schedulerEnabled'] !== false;
                     
                     // Helper para normalizar valores de canal (aceita boolean ou string "true")
@@ -144,10 +145,19 @@ async function startScheduler() {
 
                     const isAnyChannelEnabled = Object.values(channels).some(v => v === true);
 
-                    if (!isActive || !schedulerEnabled || !isAnyChannelEnabled) {
-                        if (isActive && schedulerEnabled) {
-                           console.log(`  [${account.id}] ⏭️ Ignorado: Sem canais ativos (Config: Feed=${channels.feed}, Story=${channels.story}, Reels=${channels.reels})`);
-                        }
+                    // Log detalhado para diagnóstico
+                    console.log(`  [${account.id}] status: isActive=${isActive}, schedulerEnabled=${schedulerEnabled}, channels={feed:${channels.feed},story:${channels.story},reels:${channels.reels},yt:${channels.yt},wa:${channels.wa}}`);
+
+                    if (!isActive) {
+                        console.log(`  [${account.id}] ⏭️ IGNORADO: isActive=false`);
+                        continue;
+                    }
+                    if (!schedulerEnabled) {
+                        console.log(`  [${account.id}] ⏭️ IGNORADO: schedulerEnabled=false`);
+                        continue;
+                    }
+                    if (!isAnyChannelEnabled) {
+                        console.log(`  [${account.id}] ⏭️ IGNORADO: nenhum canal ativo (feed=${channels.feed}, story=${channels.story}, reels=${channels.reels}, yt=${channels.yt}, wa=${channels.wa})`);
                         continue;
                     }
 
@@ -157,6 +167,8 @@ async function startScheduler() {
                     // Sempre carregar os triggers frescos do banco para evitar ghost triggers
                     const rawTriggers = configMap['SCHEDULER_TRIGGERS'];
                     const triggers: any[] = Array.isArray(rawTriggers) ? rawTriggers : [];
+
+                    console.log(`  [${account.id}] triggers encontrados: ${triggers.length} — ${JSON.stringify(triggers.map(t => ({ type: t.type, time: t.time, days: t.days, value: t.value })))}`);
 
                     if (triggers.length > 0) {
                         try {
@@ -173,7 +185,6 @@ async function startScheduler() {
                                     match = (trigger.value === brTime);
                                 } else if (trigger.type === 'weekly') {
                                     // Tipo semanal: verifica dias da semana (0=Dom..6=Sáb) e horário
-                                    // nowBrRef já está calculado no início do loop (hora BR)
                                     const dayOfWeek = nowBrRef.getDay(); // 0=Dom, 1=Seg...
                                     const days: number[] = Array.isArray(trigger.days) ? trigger.days : [];
                                     const triggerTime = trigger.time || trigger.value || '00:00';
@@ -185,7 +196,7 @@ async function startScheduler() {
 
                                 if (match) {
                                     shouldRunNow = true;
-                                    matchedTrigger = { type: trigger.type, value: trigger.value };
+                                    matchedTrigger = { type: trigger.type, value: trigger.value || trigger.time };
                                     
                                     await prisma.auditLog.create({
                                         data: {
@@ -195,60 +206,20 @@ async function startScheduler() {
                                     }).catch(() => {});
                                     break;
                                 }
-
-                                // Comentado para evitar inflar o banco de dados
-                                /*
-                                await prisma.auditLog.create({
-                                    data: {
-                                        action: 'SCHEDULER_DEBUG_TRIGGER',
-                                        details: { accountId: account.id, trigger, brH, brM, match }
-                                    }
-                                }).catch(() => {});
-                                */
                             }
                         } catch (e) {
                             console.error(`  [${account.id}] ❌ Erro triggers:`, e);
                         }
+                    } else {
+                        console.log(`  [${account.id}] ⚠️ Nenhum trigger configurado — account não será executada. Configure a agenda na tela de Agendamento.`);
                     }
 
-                    // Fallback para POSTING_TIMES antigo (apenas se não houver triggers configurados)
-                    if (!shouldRunNow && (!triggers || Math.max(0, triggers.length) === 0)) {
-                        let postingTimes: string[] = [];
-                        const pt = configMap['POSTING_TIMES'] || configMap['postingTimes'];
-                        
-                        // ... (Lógica de parsing de postingTimes omitida para brevidade, mas mantida no código real)
-                        // Wait, I should not omit it if I'm replacing the whole block.
-                        // I'll keep the parsing logic from the original.
-                        
-                        // Re-inserindo a lógica de parsing completa para garantir que funcione
-                        if (Array.isArray(pt)) {
-                            postingTimes = pt;
-                        } else if (typeof pt === 'string') {
-                            try { 
-                                const parsed = JSON.parse(pt);
-                                if (Array.isArray(parsed)) postingTimes = parsed;
-                                else if (typeof parsed === 'object' && parsed.start) {
-                                    postingTimes = generateTimeSlots(parsed.start, parsed.end, parsed.interval);
-                                }
-                            } catch (e) {}
-                        } else if (typeof pt === 'object' && pt) {
-                            if (pt.mode === 'slots' && Array.isArray(pt.slots)) postingTimes = pt.slots;
-                            else if (pt.start && pt.end) {
-                                postingTimes = generateTimeSlots(pt.start, pt.end, pt.interval || 120);
-                            }
-                        }
-
-                        if (postingTimes.includes(brTime)) {
-                            shouldRunNow = true;
-                            matchedTrigger = { type: 'posting_times', value: brTime };
-                        }
-                    }
+                    // REMOVIDO: Fallback para POSTING_TIMES que causava execuções não autorizadas
+                    // Se não há triggers configurados, a conta simplesmente não executa.
 
                     if (shouldRunNow) {
                         console.log(`  [${account.id}] ✅ Gatilho acionado! (${matchedTrigger.type}=${matchedTrigger.value})`);
                         accountsToRun.push(account);
-                    } else {
-                        // console.log(`  [${account.id}] 😴 Aguardando...`);
                     }
 
                 } catch (err) {

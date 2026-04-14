@@ -1,38 +1,57 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import { TopBar } from '@/components/layout/TopBar';
 import { TriggerEditor, TriggerRule } from '@/components/schedule/TriggerEditor';
 import { ExecutionGrid, ExecutionRun } from '@/components/schedule/ExecutionGrid';
-import { Calendar, RefreshCw, Loader2, Gauge } from 'lucide-react';
+import { Calendar, RefreshCw, Loader2, Gauge, CheckCircle2, XCircle, AlertTriangle, Trash2 } from 'lucide-react';
+
+interface Toast {
+    id: string;
+    type: 'success' | 'error' | 'warning';
+    message: string;
+}
 
 export default function SchedulePage() {
     const [triggers, setTriggers] = useState<TriggerRule[]>([]);
     const [runs, setRuns] = useState<ExecutionRun[]>([]);
     const [loading, setLoading] = useState(true);
     const [saving, setSaving] = useState(false);
+    const [clearing, setClearing] = useState(false);
     const [refreshing, setRefreshing] = useState(false);
+    const [toasts, setToasts] = useState<Toast[]>([]);
+    const [lastSaved, setLastSaved] = useState<string | null>(null);
+
+    const addToast = useCallback((type: Toast['type'], message: string) => {
+        const id = Math.random().toString(36).substr(2, 9);
+        setToasts(prev => [...prev, { id, type, message }]);
+        setTimeout(() => setToasts(prev => prev.filter(t => t.id !== id)), 4000);
+    }, []);
 
     useEffect(() => {
         fetchTriggers();
         fetchRuns();
         
-        const interval = setInterval(fetchRuns, 10000);
+        const interval = setInterval(fetchRuns, 15000);
         return () => clearInterval(interval);
     }, []);
 
     const fetchTriggers = async () => {
         try {
-            const res = await fetch(`/api/settings?keys=SCHEDULER_TRIGGERS&t=${Date.now()}`);
+            const res = await fetch(`/api/settings?keys=SCHEDULER_TRIGGERS&accountId=global&t=${Date.now()}`);
             const data = await res.json();
             if (data.SCHEDULER_TRIGGERS) {
                 const parsed = typeof data.SCHEDULER_TRIGGERS === 'string' 
                     ? JSON.parse(data.SCHEDULER_TRIGGERS) 
                     : data.SCHEDULER_TRIGGERS;
                 setTriggers(Array.isArray(parsed) ? parsed : [parsed]);
+            } else {
+                setTriggers([]);
             }
         } catch (e) {
             console.error('Error fetching triggers:', e);
+        } finally {
+            setLoading(false);
         }
     };
 
@@ -46,32 +65,59 @@ export default function SchedulePage() {
             console.error('Error fetching runs:', e);
         } finally {
             setRefreshing(false);
-            setLoading(false);
         }
     };
 
     const handleSaveTriggers = async (newTriggers: TriggerRule[]) => {
         setSaving(true);
         try {
+            // CRITICO: accountId='global' para acionar a limpeza de triggers fantasma no backend
             const res = await fetch('/api/settings', {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ SCHEDULER_TRIGGERS: newTriggers }),
+                body: JSON.stringify({ 
+                    accountId: 'global',
+                    SCHEDULER_TRIGGERS: newTriggers 
+                }),
             });
             
             if (res.ok) {
                 setTriggers(newTriggers);
-                alert('Gatilhos de agendamento salvos com sucesso!');
+                const now = new Date().toLocaleTimeString('pt-BR');
+                setLastSaved(now);
+                addToast('success', `Agenda salva com sucesso às ${now}. O scheduler aplicará as novas regras no próximo ciclo.`);
                 await fetch('/api/scheduler/reload', { method: 'POST' }).catch(() => {});
+                await fetchTriggers();
             } else {
                 const err = await res.json();
-                alert(`Erro ao salvar: ${err.error || 'Erro desconhecido'}`);
+                addToast('error', `Erro ao salvar: ${err.error || 'Erro desconhecido'}`);
             }
         } catch (e) {
             console.error('Error saving triggers:', e);
-            alert('Erro de conexão ao salvar gatilhos.');
+            addToast('error', 'Erro de conexão ao salvar agenda.');
         } finally {
             setSaving(false);
+        }
+    };
+
+    const handleClearAllTriggers = async () => {
+        if (!confirm('Tem certeza? Isso irá APAGAR todas as regras de agendamento.')) return;
+        setClearing(true);
+        try {
+            const res = await fetch('/api/scheduler/reload', { method: 'DELETE' });
+            if (res.ok) {
+                const data = await res.json();
+                setTriggers([]);
+                setLastSaved(null);
+                addToast('warning', `${data.deleted} regra(s) removidas. O scheduler não executará mais automaticamente.`);
+                await fetchTriggers();
+            } else {
+                addToast('error', 'Erro ao limpar as regras de agendamento.');
+            }
+        } catch (e) {
+            addToast('error', 'Erro de conexão ao limpar regras.');
+        } finally {
+            setClearing(false);
         }
     };
 
@@ -81,10 +127,26 @@ export default function SchedulePage() {
                 title="Automação & Agendamento" 
                 subtitle="Configure as regras do motor de notícias"
             />
+
+            {/* Toast Notifications */}
+            <div className="fixed top-4 right-4 z-50 flex flex-col gap-2 max-w-md">
+                {toasts.map(toast => (
+                    <div key={toast.id} className={`
+                        flex items-start gap-3 px-4 py-3 rounded-xl border shadow-lg backdrop-blur-sm text-sm font-medium
+                        ${toast.type === 'success' ? 'bg-green-500/10 border-green-500/30 text-green-300' :
+                          toast.type === 'error' ? 'bg-red-500/10 border-red-500/30 text-red-300' :
+                          'bg-yellow-500/10 border-yellow-500/30 text-yellow-300'}
+                    `}>
+                        {toast.type === 'success' ? <CheckCircle2 className="w-4 h-4 mt-0.5 flex-shrink-0" /> :
+                         toast.type === 'error' ? <XCircle className="w-4 h-4 mt-0.5 flex-shrink-0" /> :
+                         <AlertTriangle className="w-4 h-4 mt-0.5 flex-shrink-0" />}
+                        <span>{toast.message}</span>
+                    </div>
+                ))}
+            </div>
             
             <main className="flex-1 p-4 sm:p-6 lg:p-8 animate-in">
                 <div className="page-container">
-                    {/* Header Local */}
                     <div className="flex flex-col md:flex-row md:items-center justify-between gap-6 mb-10">
                         <div className="flex items-center gap-4">
                             <div className="w-14 h-14 rounded-2xl bg-purple-500/10 border border-purple-500/20 flex items-center justify-center shadow-lg shadow-purple-500/5">
@@ -97,6 +159,21 @@ export default function SchedulePage() {
                         </div>
                         
                         <div className="flex items-center gap-3">
+                            {lastSaved && (
+                                <div className="flex items-center gap-2 text-xs text-green-400 font-medium bg-green-500/5 border border-green-500/20 rounded-lg px-3 py-2">
+                                    <CheckCircle2 className="w-3.5 h-3.5" />
+                                    <span>Salvo às {lastSaved}</span>
+                                </div>
+                            )}
+                            <button 
+                                onClick={handleClearAllTriggers}
+                                disabled={clearing || triggers.length === 0}
+                                className="flex items-center gap-2 btn btn-secondary !py-2 !px-4 text-xs text-red-400 hover:text-red-300 disabled:opacity-30"
+                                title="Limpar todas as regras de agendamento"
+                            >
+                                {clearing ? <Loader2 className="w-4 h-4 animate-spin" /> : <Trash2 className="w-4 h-4" />}
+                                <span className="hidden sm:inline">Limpar Tudo</span>
+                            </button>
                             <button 
                                 onClick={fetchRuns}
                                 disabled={refreshing}
@@ -118,7 +195,6 @@ export default function SchedulePage() {
                         </div>
                     ) : (
                         <div className="grid grid-cols-1 gap-12">
-                            {/* Gatilhos */}
                             <section className="space-y-6">
                                 <div className="flex items-center gap-3 text-text-muted mb-2">
                                     <div className="w-1.5 h-1.5 rounded-full bg-purple-500 shadow-[0_0_8px_var(--purple-500)]" />
@@ -133,7 +209,6 @@ export default function SchedulePage() {
                                 </div>
                             </section>
 
-                            {/* Histórico */}
                             <section className="space-y-6">
                                 <div className="flex items-center gap-3 text-text-muted mb-2">
                                     <div className="w-1.5 h-1.5 rounded-full bg-green-400 shadow-[0_0_8px_var(--green-400)]" />

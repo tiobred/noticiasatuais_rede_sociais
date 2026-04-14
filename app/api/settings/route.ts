@@ -134,6 +134,32 @@ export async function POST(req: Request) {
         for (const [k, v] of entriesToSave) {
             console.log(`[API] Upserting SystemConfig: accountId=${accountId}, key=${k}, value=`, v);
 
+            // Para SCHEDULER_TRIGGERS: limpar TODOS os registros daquela chave em TODOS os accountIds
+            // antes de salvar o novo, garantindo que não haja triggers fantasma de saves anteriores.
+            if (k === 'SCHEDULER_TRIGGERS') {
+                console.log(`[API] SCHEDULER_TRIGGERS detectado. Limpando todos os triggers antigos para accountId=${accountId} e 'global' antes de salvar...`);
+                await prisma.systemConfig.deleteMany({
+                    where: {
+                        key: 'SCHEDULER_TRIGGERS',
+                        OR: [
+                            { accountId: accountId },
+                            { accountId: 'global' }
+                        ]
+                    }
+                });
+                // Agora salva o novo registro
+                const config = await prisma.systemConfig.create({
+                    data: {
+                        key: k,
+                        value: v as any,
+                        accountId: 'global' // Triggers sempre salvos como global
+                    }
+                });
+                results.push(config);
+                console.log(`[API] ✅ SCHEDULER_TRIGGERS salvo limpo (triggers antigos removidos).`);
+                continue;
+            }
+
             const config = await prisma.systemConfig.upsert({
                 where: {
                     key_accountId: {
