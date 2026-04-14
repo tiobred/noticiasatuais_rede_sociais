@@ -21,7 +21,7 @@ async function main() {
                 finishedAt: new Date()
             }
         });
-        console.log(`Marked run ${run.id} for account ${run.accountId} as FAILED.`);
+        console.log(`Marked run ${run.id} as FAILED.`);
     }
 }
 
