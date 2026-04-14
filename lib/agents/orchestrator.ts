@@ -4,7 +4,7 @@ import { ScraperAgent } from '@/lib/agents/scraper-agent';
 import { InstagramScraperAgent } from '@/lib/agents/instagram-scraper-agent';
 import { AnalysisAgent, BatchAnalyzedPost } from '@/lib/agents/analysis-agent';
 import { PublisherAgent } from '@/lib/agents/publisher-agent';
-import { composeSlideImage, composeStoryImage, rehostImage, rehostVideo, composeOriginalStoryImage, deleteHostedFile } from '../social/image-composer';
+import { composeSlideImage, composeStoryImage, rehostImage, rehostVideo, composeOriginalStoryImage, deleteHostedFile, cleanupLocalMedia } from '../social/image-composer';
 import { InstagramPublisher } from '@/lib/social/instagram';
 import { WhatsAppPublisher } from '@/lib/social/whatsapp';
 import { sleep } from '@/lib/utils';
@@ -1082,6 +1082,9 @@ export async function runPipeline(accountId: string): Promise<{
             }
         });
 
+        // Limpar mídia processada antiga (gerada há mais de 1h) para evitar inchaço do disco
+        await cleanupLocalMedia(3600000).catch((e) => console.error('Erro na limpeza:', e));
+
         return { postsFound, postsNew, postsPublished };
     } catch (err) {
         const error = err instanceof Error ? err.message : String(err);
@@ -1103,6 +1106,9 @@ export async function runPipeline(accountId: string): Promise<{
             whatsapp.sendAlert(`💥 Erro Crítico [${normalizedAccountId}]: ${error}`),
             sendErrorEmail(`Erro crítico no Orchestrator [${normalizedAccountId}]`, error)
         ]);
+
+        // Limpar mídia processada antiga (gerada há mais de 1h) para evitar inchaço do disco
+        await cleanupLocalMedia(3600000).catch((e) => console.error('Erro na limpeza:', e));
 
         throw err;
     }

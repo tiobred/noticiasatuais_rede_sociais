@@ -1,0 +1,21 @@
+﻿
+=== Limpeza do Supabase Storage ===
+
+node.exe : Erro ao listar buckets: 
+Service for this project is 
+restricted due to the following 
+violations: 
+exceed_storage_size_quota. Please 
+reach out to Supabase support at 
+https://supabase.help immediately.
+No C:\Program 
+Files\nodejs\npx.ps1:29 caractere:3
++   & $NODE_EXE $NPX_CLI_JS $args
++   ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+    + CategoryInfo          : NotSpe 
+   cified: (Erro ao listar ...lp im  
+  mediately.:String) [], RemoteExc   
+ eption
+    + FullyQualifiedErrorId : Native 
+   CommandError
+ 

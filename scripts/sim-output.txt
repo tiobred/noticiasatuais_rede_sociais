@@ -1,0 +1,44 @@
+﻿
+============================================================
+SIMULA├ç├âO PIPELINE: tiobred
+============================================================
+
+Canais ativos:
+  Feed: true | Story: true | Reels: true | YT: false | WA: false
+Conte├║do habilitado:
+  Not├¡cias: false | Originais: true
+
+Posts com status PROCESSED: 4
+Posts que passam no filtro tipo: 4
+
+≡ƒô▒ STORY (3 itens):
+  [original] "Post do @jornadatop" | j├í publicado: false
+  [original] "Post do @jornadatop" | j├í publicado: false
+  [original] "Post do @jornadatop" | j├í publicado: false
+
+≡ƒô╖ FEED/REELS (4 originais para processar):
+  [video] "Post do @jornadatop" | targetChannels: feed=false reels=true
+    imageUrl: https://scontent-hel3-1.cdninstagram.com/o1/v/t2/f2/m86/AQPVOu6HF3j7bKkNC_jWDneg
+  [video] "Post do @jornadatop" | targetChannels: feed=false reels=true
+    imageUrl: https://scontent-hel3-1.cdninstagram.com/o1/v/t2/f2/m86/AQN08cK-crgHybI0wFPELuKJ
+  [video] "Post do @jornadatop" | targetChannels: feed=false reels=true
+    imageUrl: https://scontent-hel3-1.cdninstagram.com/o1/v/t2/f2/m86/AQPOzpR_T47G726dVpl25VVo
+  [video] "Post do @tecnoblog" | targetChannels: feed=false reels=false
+    imageUrl: https://scontent-hel3-1.cdninstagram.com/o1/v/t16/f2/m84/AQMUdgy-b4Dn5FTAmwiD3gD
+
+============================================================
+SIMULA├ç├âO PIPELINE: promo
+============================================================
+
+Canais ativos:
+  Feed: false | Story: true | Reels: false | YT: false | WA: false
+Conte├║do habilitado:
+  Not├¡cias: true | Originais: true
+
+Posts com status PROCESSED: 5
+Posts que passam no filtro tipo: 5
+
+≡ƒô▒ STORY (3 itens):
+  [original] "Post do @promocaodehoje" | j├í publicado: false
+  [original] "Post do @promocaodehoje" | j├í publicado: false
+  [original] "Post do @promocaodehoje" | j├í publicado: false

@@ -44,7 +44,7 @@ export class WhatsAppPublisher {
                 number: targetNumber,
                 text: message,
             },
-            { headers: this.getHeaders() }
+            { headers: this.getHeaders(), timeout: 15000 }
         );
 
         const messageId = data?.key?.id ?? data?.id ?? 'sem-id';
@@ -68,7 +68,7 @@ export class WhatsAppPublisher {
                 media: imageUrl,
                 caption,
             },
-            { headers: this.getHeaders() }
+            { headers: this.getHeaders(), timeout: 30000 }
         );
 
         const messageId = data?.key?.id ?? data?.id ?? 'sem-id';

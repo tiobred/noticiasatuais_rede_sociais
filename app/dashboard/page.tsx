@@ -64,9 +64,9 @@ async function getDashboardData(searchParams: { status?: string; channel?: strin
 export default async function DashboardPage({
     searchParams,
 }: {
-    searchParams: Promise<{ status?: string; channel?: string; accountId?: string }>;
+    searchParams: { status?: string; channel?: string; accountId?: string };
 }) {
-    const filters = await searchParams;
+    const filters = searchParams;
     const { totalPosts, postsToday, lastRun, recentRuns, filteredPosts, publishedCount, latestNews } =
         await getDashboardData(filters);
 

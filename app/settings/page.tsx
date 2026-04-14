@@ -92,7 +92,7 @@ export default function SettingsPage() {
     const fetchInitialData = async () => {
         try {
             setLoading(true);
-            const res = await fetch('/api/settings?keys=INSTAGRAM_ACCOUNTS');
+            const res = await fetch(`/api/settings?keys=INSTAGRAM_ACCOUNTS&t=${Date.now()}`);
             const data = await res.json();
             if (data.INSTAGRAM_ACCOUNTS) {
                 const accounts = typeof data.INSTAGRAM_ACCOUNTS === 'string'
@@ -114,7 +114,7 @@ export default function SettingsPage() {
     const fetchAccountSettings = async (accountId: string) => {
         try {
             setLoading(true);
-            const res = await fetch(`/api/settings?accountId=${accountId}`);
+            const res = await fetch(`/api/settings?accountId=${accountId}&t=${Date.now()}`);
             const data = await res.json();
             setSettings(data);
         } catch (error) {

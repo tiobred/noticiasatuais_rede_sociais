@@ -1,0 +1,34 @@
+﻿
+=== Testando publica├º├úo de story para: Promo├º├úo de Hoje ===
+
+Post selecionado: cmnozi02y001k7hkq7bmfgcle
+  Title: Post do @promocaodehoje
+  ImageUrl: https://scontent-hel3-1.cdninstagram.com/v/t51.82787-15/662329377_18388581310080537_6447473151187770
+  Metadata: {"mediaType":"CAROUSEL_ALBUM","postOriginal":true,"targetChannels":{"feed":false,"reels":false,"story":true,"shorts":false,"whatsapp":false},"originalUsername":"promocaodehoje"}
+
+1. Testando acesso ├á URL da imagem...
+   HTTP Status: 200 | Content-Type: image/jpeg
+
+2. Tentando compor imagem de story...
+[composer] Compondo story original (9:16 fallback) para: https://scontent-hel3-1.cdninstagram.com/v/t51.827...
+node.exe :    Γ¥î ERRO ao compor 
+story: [composer] Erro ao fazer 
+upload do story original: Service 
+for this project is restricted due 
+to the following violations: 
+exceed_storage_size_quota. Please 
+reach out to Supabase support at 
+https://supabase.help immediately.
+No C:\Program 
+Files\nodejs\npx.ps1:29 caractere:3
++   & $NODE_EXE $NPX_CLI_JS $args
++   ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+    + CategoryInfo          : NotSpe 
+   cified: (   Γ¥î ERRO ao ...lp im  
+  mediately.:String) [], RemoteExc   
+ eption
+    + FullyQualifiedErrorId : Native 
+   CommandError
+ 
+
+Γ¥î N├úo foi poss├¡vel compor a imagem. Abortando teste.

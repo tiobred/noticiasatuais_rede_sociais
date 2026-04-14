@@ -1,0 +1,91 @@
+﻿
+======================================================
+       DIAGN├ôSTICO COMPLETO DO PIPELINE
+======================================================
+
+≡ƒôî Contas no .env (INSTAGRAM_ACCOUNTS): 2
+   ΓåÆ ID="Tiobred" | Nome="Instagram Tiobred" | userId="17841404877105900" | Token: Γ£à
+   ΓåÆ ID="promo" | Nome="Promo├º├úo de Hoje" | userId="17841476515226611" | Token: Γ£à
+
+------------------------------------------------------
+≡ƒôï SystemConfig por conta:
+
+  AccountId: "global"
+    isActive: Γ¥î N├âO CONFIGURADO
+    schedulerEnabled: Γ¥î N├âO CONFIGURADO
+    PUBLISH_NEWS_ENABLED: Γ¥î N├âO CONFIGURADO
+    PUBLISH_ORIGINALS_ENABLED: Γ¥î N├âO CONFIGURADO
+    CHANNEL_INSTAGRAM_FEED: false
+    CHANNEL_INSTAGRAM_STORY: false
+    CHANNEL_INSTAGRAM_REELS: Γ¥î N├âO CONFIGURADO
+    CHANNEL_WHATSAPP: false
+    CHANNEL_YOUTUBE_SHORTS: Γ¥î N├âO CONFIGURADO
+    SCHEDULER_TRIGGERS: 2 trigger(s)
+      - type=weekly value=22:00 days=[1,3,5]
+      - type=weekly value=15:00 days=[1,3,5]
+
+  AccountId: "promo"
+    isActive: true
+    schedulerEnabled: Γ¥î N├âO CONFIGURADO
+    PUBLISH_NEWS_ENABLED: true
+    PUBLISH_ORIGINALS_ENABLED: Γ¥î N├âO CONFIGURADO
+    CHANNEL_INSTAGRAM_FEED: false
+    CHANNEL_INSTAGRAM_STORY: true
+    CHANNEL_INSTAGRAM_REELS: false
+    CHANNEL_WHATSAPP: false
+    CHANNEL_YOUTUBE_SHORTS: false
+    SCHEDULER_TRIGGERS: 4 trigger(s)
+      - type=weekly value=22:00 days=[1,3,5]
+      - type=weekly value=15:00 days=[1,3,5]
+      - type=hours value=1 days=undefined
+      - type=weekly value=18:00 days=[1,3,5]
+
+  AccountId: "tiobred"
+    isActive: true
+    schedulerEnabled: Γ¥î N├âO CONFIGURADO
+    PUBLISH_NEWS_ENABLED: false
+    PUBLISH_ORIGINALS_ENABLED: Γ¥î N├âO CONFIGURADO
+    CHANNEL_INSTAGRAM_FEED: true
+    CHANNEL_INSTAGRAM_STORY: true
+    CHANNEL_INSTAGRAM_REELS: true
+    CHANNEL_WHATSAPP: false
+    CHANNEL_YOUTUBE_SHORTS: false
+    SCHEDULER_TRIGGERS: 1 trigger(s)
+      - type=weekly value=18:00 days=[1,3,5]
+
+------------------------------------------------------
+≡ƒöì Cruzamento: contas do .env vs banco de dados:
+
+  ΓåÆ Conta "Tiobred" (normalizada: "tiobred")
+    isActive: Γ£à true
+    Canais espec├¡ficos desta conta: Γ£à Pelo menos 1 ativo
+    Canais da conta "global": Γ¥î Nenhum
+    Γ₧í∩╕Å  SER├ü EXECUTADA? Γ£à SIM
+
+  ΓåÆ Conta "promo" (normalizada: "promo")
+    isActive: Γ£à true
+    Canais espec├¡ficos desta conta: Γ£à Pelo menos 1 ativo
+    Canais da conta "global": Γ¥î Nenhum
+    Γ₧í∩╕Å  SER├ü EXECUTADA? Γ£à SIM
+
+------------------------------------------------------
+≡ƒôè Estado dos posts:
+  AccountId="promo" | Status=PENDING | Count=4
+  AccountId="tiobred" | Status=PENDING | Count=15
+  AccountId="promo" | Status=PROCESSED | Count=5
+  AccountId="tiobred" | Status=PROCESSED | Count=4
+
+------------------------------------------------------
+≡ƒôñ ├Ültimas 10 publica├º├╡es sociais:
+  ΓÅ│ channel=YOUTUBE_SHORTS | accountId="tiobred" | status=PENDING | error=-
+
+------------------------------------------------------
+≡ƒÅâ ├Ültimas 10 AgentRuns:
+  Γ£à [orchestrator_promo] SUCCESS | found=13 new=9 pub=0 | dur=78s | err=-
+  Γ¥î [orchestrator_tiobred] FAILED | found=0 new=0 pub=0 | dur=927s | err=Run interrompido ou timeout excedido (limpeza autom├ítica).
+  Γ¥î [Execu├º├úo Manual (Dashboard)] FAILED | found=0 new=0 pub=0 | dur=932s | err=Run interrompido ou timeout excedido (limpeza autom├ítica).
+
+======================================================
+         FIM DO DIAGN├ôSTICO
+======================================================
+

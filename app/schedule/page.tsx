@@ -23,7 +23,7 @@ export default function SchedulePage() {
 
     const fetchTriggers = async () => {
         try {
-            const res = await fetch('/api/settings?keys=SCHEDULER_TRIGGERS');
+            const res = await fetch(`/api/settings?keys=SCHEDULER_TRIGGERS&t=${Date.now()}`);
             const data = await res.json();
             if (data.SCHEDULER_TRIGGERS) {
                 const parsed = typeof data.SCHEDULER_TRIGGERS === 'string' 

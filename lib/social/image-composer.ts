@@ -18,6 +18,18 @@ function ensureMediaDir() {
 }
 
 /**
+ * Helper com timeout para evitar que loadImage fique travado em sockets pendentes
+ */
+async function fetchImageBuffer(url: string): Promise<Buffer> {
+    try {
+        const response = await axios.get(url, { responseType: 'arraybuffer', timeout: 30000 });
+        return Buffer.from(response.data);
+    } catch (err: any) {
+        throw new Error(`Timeout/erro ao baixar imagem ${url}: ${err.message}`);
+    }
+}
+
+/**
  * Retorna a URL pública para um arquivo local servido via API route.
  * Em dev: http://localhost:3000/api/media/<filename>
  * Em produção: https://<domínio>/api/media/<filename>
@@ -68,7 +80,8 @@ export async function composeSlideImage(
     if (sourceImageUrl) {
         try {
             const highResUrl = getHighResUrl(sourceImageUrl);
-            const img = await loadImage(highResUrl);
+            const imgBuf = await fetchImageBuffer(highResUrl);
+            const img = await loadImage(imgBuf);
 
             // 1a. Fundo Borrado (Scale to fill)
             const fillScale = Math.max(W / img.width, H / img.height);
@@ -190,7 +203,8 @@ export async function composeStoryImage(
     if (sourceImageUrl) {
         try {
             const highResUrl = getHighResUrl(sourceImageUrl);
-            const img = await loadImage(highResUrl);
+            const imgBuf = await fetchImageBuffer(highResUrl);
+            const img = await loadImage(imgBuf);
 
             // Fundo borrado scale to fill
             const fillScale = Math.max(CW / img.width, CH / img.height);
@@ -308,7 +322,8 @@ export async function composeOriginalStoryImage(
     // 2. Desenhar Imagem Original no Centro
     try {
         const highResUrl = getHighResUrl(sourceImageUrl);
-        const img = await loadImage(highResUrl);
+        const imgBuf = await fetchImageBuffer(highResUrl);
+        const img = await loadImage(imgBuf);
 
         // Calcular escala para caber na tela sem perder proporções
         const scale = Math.min((CW * 0.95) / img.width, (CH * 0.85) / img.height); // margem segura
@@ -351,7 +366,8 @@ export async function rehostImage(url: string, prefix = 'original'): Promise<str
     }
     try {
         const highRes = getHighResUrl(url);
-        const img = await loadImage(highRes);
+        const imgBuf = await fetchImageBuffer(highRes);
+        const img = await loadImage(imgBuf);
 
         const canvas = createCanvas(img.width, img.height);
         const ctx = canvas.getContext('2d');
@@ -383,7 +399,7 @@ export async function rehostVideo(url: string, prefix = 'video', normalize = fal
     const inputPath = path.join(tempDir, inputFilename);
 
     try {
-        const response = await axios.get(safeUrl, { responseType: 'arraybuffer' });
+        const response = await axios.get(safeUrl, { responseType: 'arraybuffer', timeout: 30000 });
         const buffer = Buffer.from(response.data);
         fs.writeFileSync(inputPath, buffer);
 
@@ -517,4 +533,35 @@ function wrapText(ctx: SKRSContext2D, text: string, maxWidth: number): string[] 
     }
     if (current) lines.push(current);
     return lines;
+}
+
+/**
+ * Limpa arquivos de mídia temporários mais antigos que determinada idade (ms).
+ * O padrão é limpar arquivos com mais de 1 hora.
+ */
+export async function cleanupLocalMedia(olderThanMs = 3600000): Promise<void> {
+    console.log(`[composer] Verificando limpeza de arquivos locais antigos...`);
+    const dirs = [LOCAL_MEDIA_DIR, path.join(process.cwd(), 'tmp', 'rehost')];
+    
+    for (const dir of dirs) {
+        if (!fs.existsSync(dir)) continue;
+        const files = fs.readdirSync(dir);
+        let count = 0;
+        
+        for (const file of files) {
+            const filePath = path.join(dir, file);
+            try {
+                const stats = fs.statSync(filePath);
+                if (Date.now() - stats.mtimeMs > olderThanMs) {
+                    fs.unlinkSync(filePath);
+                    count++;
+                }
+            } catch (err) {
+                // ignora o erro individual
+            }
+        }
+        if (count > 0) {
+            console.log(`[composer] ✅ Removidos ${count} arquivos antigos no diretório ${path.basename(dir)}`);
+        }
+    }
 }

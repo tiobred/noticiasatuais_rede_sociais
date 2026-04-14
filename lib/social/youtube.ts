@@ -33,7 +33,7 @@ export class YouTubePublisher {
       client_secret: clientSecret,
       refresh_token: refreshToken,
       grant_type: 'refresh_token',
-    });
+    }, { timeout: 15000 });
 
     return response.data.access_token;
   }
@@ -70,6 +70,7 @@ export class YouTubePublisher {
           'X-Upload-Content-Length': videoSize,
           'X-Upload-Content-Type': 'video/mp4',
         },
+        timeout: 20000,
       }
     );
 
@@ -82,6 +83,7 @@ export class YouTubePublisher {
         'Content-Type': 'video/mp4',
         'Content-Length': videoSize,
       },
+      timeout: 300000, // 5 minutes for video upload
     });
 
     console.log(`[youtube] ✅ Upload concluído com sucesso: ${uploadRes.data.id}`);

@@ -1,0 +1,59 @@
+﻿
+=== Posts PROCESSED da conta promo ===
+
+Post ID: cmnozi02y001k7hkq7bmfgcle
+  Title: Post do @promocaodehoje
+  postOriginal: true
+  targetChannels: {"feed":false,"reels":false,"story":true,"shorts":false,"whatsapp":false}
+  imageUrl: https://scontent-hel3-1.cdninstagram.com/v/t51.82787-15/6623
+  ---
+Post ID: cmnozi1ve001l7hkqwn71izea
+  Title: Post do @promocaodehoje
+  postOriginal: true
+  targetChannels: {"feed":false,"reels":false,"story":true,"shorts":false,"whatsapp":false}
+  imageUrl: https://scontent-hel3-1.cdninstagram.com/v/t51.82787-15/6622
+  ---
+Post ID: cmnozi4fr001m7hkqgy5fkk10
+  Title: Post do @promocaodehoje
+  postOriginal: true
+  targetChannels: {"feed":false,"reels":false,"story":true,"shorts":false,"whatsapp":false}
+  imageUrl: https://scontent-hel3-1.cdninstagram.com/v/t51.82787-15/6624
+  ---
+Post ID: cmnozi7zq001n7hkqy29tueu1
+  Title: Post do @promocaodehoje
+  postOriginal: true
+  targetChannels: {"feed":false,"reels":false,"story":true,"shorts":false,"whatsapp":false}
+  imageUrl: https://scontent-hel3-1.cdninstagram.com/v/t51.82787-15/6598
+  ---
+Post ID: cmnozi9qa001o7hkq80oejrxc
+  Title: Post do @promocaodehoje
+  postOriginal: true
+  targetChannels: {"feed":false,"reels":false,"story":true,"shorts":false,"whatsapp":false}
+  imageUrl: https://scontent-hel3-1.cdninstagram.com/v/t51.82787-15/6594
+  ---
+
+=== SocialPublications existentes (promo) ===
+
+
+=== Posts PROCESSED da conta tiobred ===
+
+Post ID: cmnoyl8j50005xoqjsed7x5u4
+  Title: Post do @jornadatop
+  postOriginal: true
+  targetChannels: {"feed":false,"reels":true,"story":true,"shorts":true,"whatsapp":false}
+Post ID: cmnoylab20006xoqjw9rm22kk
+  Title: Post do @jornadatop
+  postOriginal: true
+  targetChannels: {"feed":false,"reels":true,"story":true,"shorts":true,"whatsapp":false}
+Post ID: cmnoylc220007xoqjn7kj9x6n
+  Title: Post do @jornadatop
+  postOriginal: true
+  targetChannels: {"feed":false,"reels":true,"story":true,"shorts":true,"whatsapp":false}
+Post ID: cmnoyldsv0008xoqjoymn1qqk
+  Title: Post do @tecnoblog
+  postOriginal: true
+  targetChannels: {"feed":false,"reels":false,"story":true,"shorts":true,"whatsapp":false}
+
+=== SocialPublications existentes (tiobred) ===
+
+  channel=YOUTUBE_SHORTS postId=cmnoyl8j50005xoqjsed7x5u4 status=PENDING err=-

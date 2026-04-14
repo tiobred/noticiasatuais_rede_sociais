@@ -211,8 +211,8 @@ async function startScheduler() {
                         }
                     }
 
-                    // Fallback para POSTING_TIMES antigo
-                    if (!shouldRunNow) {
+                    // Fallback para POSTING_TIMES antigo (apenas se não houver triggers configurados)
+                    if (!shouldRunNow && (!triggers || Math.max(0, triggers.length) === 0)) {
                         let postingTimes: string[] = [];
                         const pt = configMap['POSTING_TIMES'] || configMap['postingTimes'];
                         
